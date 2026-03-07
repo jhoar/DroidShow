@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">DroidShow</string>
+    <string name="no_archive_opened">No archive opened yet.</string>
+</resources>
