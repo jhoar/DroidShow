@@ -18,8 +18,8 @@ class ZipArchiveReader(
                 ZipInputStream(input).use { zip ->
                     var entry: ZipEntry? = zip.nextEntry
                     var index = 0
-                    while (entry != null) {
-                        val currentEntry = entry
+                    while (true) {
+                        val currentEntry = entry ?: break
                         val name = currentEntry.name
                         if (!currentEntry.isDirectory && ArchiveEntrySupport.isImageEntry(name)) {
                             add(
