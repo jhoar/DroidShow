@@ -15,6 +15,16 @@ internal object ViewerStatePolicy {
         return if (resetPosition) 0 else savedIndex
     }
 
+    fun shouldStopPlaybackForNewArchive(
+        requestedUri: String?,
+        currentUri: String?,
+        isPlaying: Boolean
+    ): Boolean {
+        if (!isPlaying) return false
+        if (requestedUri.isNullOrBlank()) return false
+        return requestedUri != currentUri
+    }
+
     fun clampIndex(index: Int, lastIndex: Int): Int {
         return index.coerceIn(0, lastIndex)
     }
