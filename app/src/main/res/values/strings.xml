@@ -15,6 +15,8 @@
     <string name="slideshow_image">Slideshow image</string>
     <string name="current_image">Current image</string>
     <string name="slideshow_position">Image %1$d of %2$d</string>
+    <string name="slideshow_position_with_file">%1$d/%2$d • %3$s</string>
+    <string name="unknown_archive_name">Unknown archive</string>
     <string name="error_no_images">No images were found in this archive.</string>
     <string name="error_unsupported_archive">Unsupported archive format.</string>
     <string name="error_corrupt_archive">Archive appears to be corrupt.</string>
