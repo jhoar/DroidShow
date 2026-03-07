@@ -3,6 +3,7 @@ package com.droidshow.app
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -52,10 +53,18 @@ class MainActivity : AppCompatActivity() {
                     }
                     binding.openedUriText.text = positionText
                     binding.loadingSpinner.visibility = if (state.isLoading) View.VISIBLE else View.GONE
-                    binding.slideshowButton.text = if (state.isPlaying) {
-                        getString(R.string.pause_slideshow)
+                    val canControlSlideshow = state.totalCount > 0 && state.bitmap != null && !state.isLoading
+                    binding.slideshowButton.isEnabled = canControlSlideshow
+                    if (state.isPlaying) {
+                        binding.slideshowButton.setImageDrawable(
+                            ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_media_pause)
+                        )
+                        binding.slideshowButton.contentDescription = getString(R.string.pause_slideshow)
                     } else {
-                        getString(R.string.start_slideshow)
+                        binding.slideshowButton.setImageDrawable(
+                            ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_media_play)
+                        )
+                        binding.slideshowButton.contentDescription = getString(R.string.start_slideshow)
                     }
                     binding.imageView.setImageBitmap(state.bitmap)
                 }

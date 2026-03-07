@@ -48,6 +48,12 @@ class ViewerViewModel(
     }
 
     fun togglePlayback() {
+        if (imageEntries.isEmpty()) {
+            _uiState.value = _uiState.value.copy(isPlaying = false)
+            savedStateHandle[KEY_IS_PLAYING] = false
+            return
+        }
+
         val shouldPlay = !_uiState.value.isPlaying
         _uiState.value = _uiState.value.copy(isPlaying = shouldPlay)
         savedStateHandle[KEY_IS_PLAYING] = shouldPlay
