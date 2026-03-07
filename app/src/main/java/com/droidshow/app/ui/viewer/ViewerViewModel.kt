@@ -72,6 +72,14 @@ class ViewerViewModel(
         restartSlideshowLoopIfNeeded()
     }
 
+    fun setSlideshowIntervalSeconds(seconds: Int) {
+        val clampedSeconds = seconds.coerceIn(MIN_INTERVAL_SECONDS, MAX_INTERVAL_SECONDS)
+        val intervalMs = clampedSeconds * 1_000L
+        _uiState.value = _uiState.value.copy(slideshowIntervalMs = intervalMs)
+        savedStateHandle[KEY_SLIDESHOW_INTERVAL_MS] = intervalMs
+        restartSlideshowLoopIfNeeded()
+    }
+
     private fun loadArchive(uri: Uri, resetPosition: Boolean) {
         loadingUri = uri
         _uiState.value = _uiState.value.copy(
@@ -163,7 +171,7 @@ class ViewerViewModel(
 
         slideshowJob = viewModelScope.launch {
             while (_uiState.value.isPlaying && imageEntries.isNotEmpty()) {
-                delay(SLIDESHOW_INTERVAL_MS)
+                delay(_uiState.value.slideshowIntervalMs)
                 val nextIndex = (_uiState.value.currentIndex + 1) % imageEntries.size
                 showEntry(nextIndex)
             }
@@ -178,8 +186,14 @@ class ViewerViewModel(
     private fun restoreSavedState() {
         val uriString = savedStateHandle.get<String>(KEY_ARCHIVE_URI)
         val isPlaying = savedStateHandle.get<Boolean>(KEY_IS_PLAYING) ?: false
+        val intervalMs = (savedStateHandle.get<Long>(KEY_SLIDESHOW_INTERVAL_MS) ?: DEFAULT_SLIDESHOW_INTERVAL_MS)
+            .coerceIn(MIN_INTERVAL_SECONDS * 1_000L, MAX_INTERVAL_SECONDS * 1_000L)
+
         if (uriString.isNullOrBlank()) {
-            _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
+            _uiState.value = _uiState.value.copy(
+                isPlaying = isPlaying,
+                slideshowIntervalMs = intervalMs
+            )
             return
         }
 
@@ -187,16 +201,20 @@ class ViewerViewModel(
         _uiState.value = _uiState.value.copy(
             archiveUri = restoredUri,
             isLoading = true,
-            isPlaying = isPlaying
+            isPlaying = isPlaying,
+            slideshowIntervalMs = intervalMs
         )
         loadArchive(restoredUri, resetPosition = false)
     }
 
     companion object {
-        private const val SLIDESHOW_INTERVAL_MS = 3_000L
+        const val MIN_INTERVAL_SECONDS = 1
+        const val MAX_INTERVAL_SECONDS = 30
+        private const val DEFAULT_SLIDESHOW_INTERVAL_MS = 3_000L
         private const val KEY_ARCHIVE_URI = "archive_uri"
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_IS_PLAYING = "is_playing"
+        private const val KEY_SLIDESHOW_INTERVAL_MS = "slideshow_interval_ms"
     }
 
     private fun errorMessageFor(throwable: Throwable): String {
