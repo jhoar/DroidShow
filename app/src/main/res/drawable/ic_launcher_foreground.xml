@@ -1,0 +1,24 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Stylized S-shape film strip -->
+    <path
+        android:fillColor="@color/icon_fg_ice"
+        android:pathData="M24,26C24,20.48 28.48,16 34,16h38c5.52,0 10,4.48 10,10v12c0,5.52 -4.48,10 -10,10H42v8h30c5.52,0 10,4.48 10,10v16c0,5.52 -4.48,10 -10,10H34c-5.52,0 -10,-4.48 -10,-10V70c0,-5.52 4.48,-10 10,-10h30v-8H34c-5.52,0 -10,-4.48 -10,-10z" />
+
+    <!-- Film perforations -->
+    <path
+        android:fillColor="@color/icon_bg_indigo"
+        android:pathData="M33,23h4v4h-4zM41,23h4v4h-4zM49,23h4v4h-4zM57,23h4v4h-4zM65,23h4v4h-4zM73,23h4v4h-4zM33,81h4v4h-4zM41,81h4v4h-4zM49,81h4v4h-4zM57,81h4v4h-4zM65,81h4v4h-4zM73,81h4v4h-4z" />
+
+    <!-- Accent glow dots -->
+    <path
+        android:fillColor="@color/icon_accent_cyan"
+        android:pathData="M78,36m-3,0a3,3 0,1 1,6 0a3,3 0,1 1,-6 0" />
+    <path
+        android:fillColor="@color/icon_accent_violet"
+        android:pathData="M30,72m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0" />
+</vector>

@@ -1,0 +1,6 @@
+<resources>
+    <color name="icon_bg_indigo">#1E1B4B</color>
+    <color name="icon_fg_ice">#F8FAFC</color>
+    <color name="icon_accent_cyan">#22D3EE</color>
+    <color name="icon_accent_violet">#A78BFA</color>
+</resources>
