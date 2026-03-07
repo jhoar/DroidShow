@@ -18,15 +18,16 @@ class ZipArchiveReader(
                 ZipInputStream(input).use { zip ->
                     var entry: ZipEntry? = zip.nextEntry
                     var index = 0
-                    while (entry != null) {
-                        val name = entry.name
-                        if (!entry.isDirectory && ArchiveEntrySupport.isImageEntry(name)) {
+                    while (true) {
+                        val currentEntry = entry ?: break
+                        val name = currentEntry.name
+                        if (!currentEntry.isDirectory && ArchiveEntrySupport.isImageEntry(name)) {
                             add(
                                 ArchiveEntryRef(
                                     archiveUri = archiveUri,
                                     entryPath = name,
-                                    compressedSize = entry.compressedSize,
-                                    uncompressedSize = entry.size,
+                                    compressedSize = currentEntry.compressedSize,
+                                    uncompressedSize = currentEntry.size,
                                     index = index
                                 )
                             )
