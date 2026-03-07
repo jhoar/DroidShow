@@ -44,6 +44,18 @@ class ViewerViewModel(
         )
         if (!shouldLoad || uri == null) return
 
+        if (
+            ViewerStatePolicy.shouldStopPlaybackForNewArchive(
+                requestedUri = uri.toString(),
+                currentUri = _uiState.value.archiveUri?.toString(),
+                isPlaying = _uiState.value.isPlaying
+            )
+        ) {
+            _uiState.value = _uiState.value.copy(isPlaying = false)
+            savedStateHandle[KEY_IS_PLAYING] = false
+            stopSlideshowLoop()
+        }
+
         loadArchive(uri, resetPosition = true)
     }
 

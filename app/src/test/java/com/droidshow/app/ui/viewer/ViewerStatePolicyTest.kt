@@ -73,6 +73,34 @@ class ViewerStatePolicyTest {
         )
     }
 
+
+    @Test
+    fun `shouldStopPlaybackForNewArchive only stops when playback is active and uri changes`() {
+        assertFalse(
+            ViewerStatePolicy.shouldStopPlaybackForNewArchive(
+                requestedUri = "content://new.cbz",
+                currentUri = "content://old.cbz",
+                isPlaying = false
+            )
+        )
+
+        assertFalse(
+            ViewerStatePolicy.shouldStopPlaybackForNewArchive(
+                requestedUri = "content://same.cbz",
+                currentUri = "content://same.cbz",
+                isPlaying = true
+            )
+        )
+
+        assertTrue(
+            ViewerStatePolicy.shouldStopPlaybackForNewArchive(
+                requestedUri = "content://new.cbz",
+                currentUri = "content://old.cbz",
+                isPlaying = true
+            )
+        )
+    }
+
     @Test
     fun `initialIndexForLoad keeps current index across restore and resets for new archive`() {
         assertEquals(0, ViewerStatePolicy.initialIndexForLoad(resetPosition = true, savedIndex = 7))
