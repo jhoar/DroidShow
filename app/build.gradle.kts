@@ -51,6 +51,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("org.apache.commons:commons-compress:1.27.1")
+    implementation("org.tukaani:xz:1.9")
     implementation("com.github.junrar:junrar:7.5.5")
 
     testImplementation("junit:junit:4.13.2")
