@@ -52,19 +52,22 @@
         android:adjustViewBounds="true"
         android:contentDescription="@string/slideshow_image"
         android:scaleType="fitCenter"
-        app:layout_constraintBottom_toTopOf="@id/slideshowButton"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/loadingSpinner" />
 
-    <Button
+    <androidx.appcompat.widget.AppCompatImageButton
         android:id="@+id/slideshowButton"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="@string/start_slideshow"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_margin="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/start_slideshow"
+        android:enabled="false"
+        android:padding="8dp"
+        app:layout_constraintEnd_toEndOf="@id/imageView"
+        app:layout_constraintTop_toTopOf="@id/imageView"
+        app:srcCompat="@android:drawable/ic_media_play" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
