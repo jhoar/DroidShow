@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.NumberPicker
+import com.droidshow.app.ui.viewer.ViewerUiState
 import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -21,6 +22,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewerViewModel: ViewerViewModel by viewModels()
     private var slideshowIntervalSeconds: Int = DEFAULT_SLIDESHOW_INTERVAL_SECONDS
+    private var displayMode: ViewerUiState.DisplayMode = ViewerUiState.DisplayMode.SEQUENTIAL
     private val archivePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@registerForActivityResult
         persistReadPermissionIfPossible(
@@ -54,6 +56,7 @@ class MainActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewerViewModel.uiState.collect { state ->
                     slideshowIntervalSeconds = (state.slideshowIntervalMs / 1_000L).toInt()
+                    displayMode = state.displayMode
                     val uriText = state.archiveUri?.toString() ?: getString(R.string.no_archive_opened)
                     val positionText = if (state.totalCount > 0) {
                         getString(R.string.slideshow_position, state.currentIndex + 1, state.totalCount)
@@ -90,11 +93,24 @@ class MainActivity : AppCompatActivity() {
             value = slideshowIntervalSeconds.coerceIn(minValue, maxValue)
         }
 
+        val checkedModeId = if (displayMode == ViewerUiState.DisplayMode.RANDOM) {
+            settingsBinding.displayModeRandom.id
+        } else {
+            settingsBinding.displayModeSequential.id
+        }
+        settingsBinding.displayModeGroup.check(checkedModeId)
+
         AlertDialog.Builder(this)
             .setTitle(R.string.settings_title)
             .setView(settingsBinding.root)
             .setPositiveButton(R.string.accept) { _, _ ->
                 viewerViewModel.setSlideshowIntervalSeconds(settingsBinding.slideshowIntervalPicker.value)
+                val selectedMode = if (settingsBinding.displayModeGroup.checkedRadioButtonId == settingsBinding.displayModeRandom.id) {
+                    ViewerUiState.DisplayMode.RANDOM
+                } else {
+                    ViewerUiState.DisplayMode.SEQUENTIAL
+                }
+                viewerViewModel.setDisplayMode(selectedMode)
             }
             .setNegativeButton(R.string.cancel, null)
             .show()

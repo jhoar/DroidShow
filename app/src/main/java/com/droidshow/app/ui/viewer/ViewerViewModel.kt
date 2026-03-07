@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.random.Random
 
 class ViewerViewModel(
     application: Application,
@@ -30,6 +31,7 @@ class ViewerViewModel(
     private var imageEntries: List<ArchiveEntryRef> = emptyList()
     private var slideshowJob: Job? = null
     private var loadingUri: Uri? = null
+    private var displayOrder: MutableList<Int> = mutableListOf()
 
     init {
         restoreSavedState()
@@ -80,6 +82,16 @@ class ViewerViewModel(
         restartSlideshowLoopIfNeeded()
     }
 
+    fun setDisplayMode(displayMode: ViewerUiState.DisplayMode) {
+        if (_uiState.value.displayMode == displayMode) return
+
+        val currentEntry = imageEntries.getOrNull(_uiState.value.currentIndex)
+        _uiState.value = _uiState.value.copy(displayMode = displayMode)
+        savedStateHandle[KEY_DISPLAY_MODE] = displayMode.name
+        rebuildDisplayOrder(currentEntry)
+        restartSlideshowLoopIfNeeded()
+    }
+
     private fun loadArchive(uri: Uri, resetPosition: Boolean) {
         loadingUri = uri
         _uiState.value = _uiState.value.copy(
@@ -124,6 +136,8 @@ class ViewerViewModel(
                     index = savedStateHandle[KEY_CURRENT_INDEX] ?: 0,
                     lastIndex = entries.lastIndex
                 )
+                val restoredEntry = entries[restoredIndex]
+                rebuildDisplayOrder(restoredEntry)
                 showEntry(restoredIndex)
                 restartSlideshowLoopIfNeeded()
             }.onFailure { throwable ->
@@ -172,10 +186,51 @@ class ViewerViewModel(
         slideshowJob = viewModelScope.launch {
             while (_uiState.value.isPlaying && imageEntries.isNotEmpty()) {
                 delay(_uiState.value.slideshowIntervalMs)
-                val nextIndex = (_uiState.value.currentIndex + 1) % imageEntries.size
+                val nextIndex = nextIndexForMode(_uiState.value.currentIndex)
                 showEntry(nextIndex)
             }
         }
+    }
+
+    private fun nextIndexForMode(currentIndex: Int): Int {
+        if (imageEntries.isEmpty()) return 0
+
+        return when (_uiState.value.displayMode) {
+            ViewerUiState.DisplayMode.SEQUENTIAL -> (currentIndex + 1) % imageEntries.size
+            ViewerUiState.DisplayMode.RANDOM -> {
+                val currentOrderIndex = displayOrder.indexOf(currentIndex)
+                val nextOrderIndex = if (currentOrderIndex < 0 || currentOrderIndex >= displayOrder.lastIndex) {
+                    rebuildDisplayOrder(imageEntries.getOrNull(currentIndex))
+                    1
+                } else {
+                    currentOrderIndex + 1
+                }
+
+                displayOrder.getOrElse(nextOrderIndex.coerceAtMost(displayOrder.lastIndex)) { currentIndex }
+            }
+        }
+    }
+
+    private fun rebuildDisplayOrder(currentEntry: ArchiveEntryRef?) {
+        if (imageEntries.isEmpty()) {
+            displayOrder = mutableListOf()
+            return
+        }
+
+        val order = imageEntries.indices.toMutableList()
+        if (_uiState.value.displayMode == ViewerUiState.DisplayMode.RANDOM) {
+            order.shuffle(Random.Default)
+            val currentIndex = currentEntry?.let { imageEntries.indexOf(it) } ?: -1
+            if (currentIndex >= 0) {
+                val foundPosition = order.indexOf(currentIndex)
+                if (foundPosition > 0) {
+                    order.removeAt(foundPosition)
+                    order.add(0, currentIndex)
+                }
+            }
+        }
+
+        displayOrder = order
     }
 
     private fun stopSlideshowLoop() {
@@ -188,11 +243,15 @@ class ViewerViewModel(
         val isPlaying = savedStateHandle.get<Boolean>(KEY_IS_PLAYING) ?: false
         val intervalMs = (savedStateHandle.get<Long>(KEY_SLIDESHOW_INTERVAL_MS) ?: DEFAULT_SLIDESHOW_INTERVAL_MS)
             .coerceIn(MIN_INTERVAL_SECONDS * 1_000L, MAX_INTERVAL_SECONDS * 1_000L)
+        val displayMode = savedStateHandle.get<String>(KEY_DISPLAY_MODE)
+            ?.let { runCatching { ViewerUiState.DisplayMode.valueOf(it) }.getOrNull() }
+            ?: ViewerUiState.DisplayMode.SEQUENTIAL
 
         if (uriString.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(
                 isPlaying = isPlaying,
-                slideshowIntervalMs = intervalMs
+                slideshowIntervalMs = intervalMs,
+                displayMode = displayMode
             )
             return
         }
@@ -202,7 +261,8 @@ class ViewerViewModel(
             archiveUri = restoredUri,
             isLoading = true,
             isPlaying = isPlaying,
-            slideshowIntervalMs = intervalMs
+            slideshowIntervalMs = intervalMs,
+            displayMode = displayMode
         )
         loadArchive(restoredUri, resetPosition = false)
     }
@@ -215,6 +275,7 @@ class ViewerViewModel(
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_IS_PLAYING = "is_playing"
         private const val KEY_SLIDESHOW_INTERVAL_MS = "slideshow_interval_ms"
+        private const val KEY_DISPLAY_MODE = "display_mode"
     }
 
     private fun errorMessageFor(throwable: Throwable): String {
