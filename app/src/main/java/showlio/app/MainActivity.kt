@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.NumberPicker
+import android.provider.OpenableColumns
 import showlio.app.ui.viewer.ViewerUiState
 import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
@@ -57,11 +58,17 @@ class MainActivity : AppCompatActivity() {
                 viewerViewModel.uiState.collect { state ->
                     slideshowIntervalSeconds = (state.slideshowIntervalMs / 1_000L).toInt()
                     displayMode = state.displayMode
-                    val uriText = state.archiveUri?.toString() ?: getString(R.string.no_archive_opened)
+                    val archiveFileName = state.archiveUri?.let { resolveArchiveName(it) }
+                        ?: getString(R.string.no_archive_opened)
                     val positionText = if (state.totalCount > 0) {
-                        getString(R.string.slideshow_position, state.currentIndex + 1, state.totalCount)
+                        getString(
+                            R.string.slideshow_position_with_file,
+                            state.currentIndex + 1,
+                            state.totalCount,
+                            archiveFileName
+                        )
                     } else {
-                        state.errorMessage ?: uriText
+                        state.errorMessage ?: archiveFileName
                     }
                     binding.openedUriText.text = positionText
                     binding.loadingSpinner.visibility = if (state.isLoading) View.VISIBLE else View.GONE
@@ -142,8 +149,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun resolveArchiveName(uri: Uri): String {
+        val fallbackName = uri.lastPathSegment?.substringAfterLast('/')?.ifBlank { null }
+            ?: getString(R.string.unknown_archive_name)
+
+        val displayName = runCatching {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex == -1) null else cursor.getString(nameIndex)
+            }
+        }.getOrNull()
+
+        val resolvedName = displayName?.ifBlank { null } ?: fallbackName
+        return truncateArchiveName(resolvedName)
+    }
+
+    private fun truncateArchiveName(fileName: String): String {
+        if (fileName.length <= ARCHIVE_NAME_MAX_LENGTH) return fileName
+        return fileName.take(ARCHIVE_NAME_MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
+    }
+
     companion object {
         private const val DEFAULT_SLIDESHOW_INTERVAL_SECONDS = 3
+        private const val ARCHIVE_NAME_MAX_LENGTH = 40
+        private const val ELLIPSIS = "…"
         private val ARCHIVE_MIME_TYPES = arrayOf(
             "application/zip",
             "application/x-zip-compressed",
