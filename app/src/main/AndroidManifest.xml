@@ -27,8 +27,6 @@
                 <data android:mimeType="application/x-7z-compressed" />
                 <data android:mimeType="application/x-rar-compressed" />
                 <data android:mimeType="application/vnd.rar" />
-                <data android:mimeType="application/gzip" />
-                <data android:mimeType="application/x-tar" />
 
                 <!-- Common comic archive MIME variants from file managers/providers -->
                 <data android:mimeType="application/vnd.comicbook+zip" />
@@ -43,8 +41,16 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.zip" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.rar" />
+                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.7z" />
                 <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.cbz" />
                 <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.cbr" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.zip" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.rar" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.7z" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.cbz" />
+                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.cbr" />
             </intent-filter>
         </activity>
     </application>
