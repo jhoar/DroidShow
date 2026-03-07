@@ -47,6 +47,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("org.apache.commons:commons-compress:1.27.1")
     implementation("com.github.junrar:junrar:7.5.5")
