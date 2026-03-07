@@ -8,6 +8,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.droidshow.app.R
 import com.droidshow.app.archive.ArchiveEntryRef
+import com.droidshow.app.archive.ArchiveReader
 import com.droidshow.app.archive.ArchiveReaderFactory
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,8 @@ class ViewerViewModel(
     private var slideshowJob: Job? = null
     private var loadingUri: Uri? = null
     private var displayOrder: MutableList<Int> = mutableListOf()
+    private var activeReaderUri: Uri? = null
+    private var activeReader: ArchiveReader? = null
 
     init {
         restoreSavedState()
@@ -110,9 +113,8 @@ class ViewerViewModel(
         viewModelScope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    ArchiveReaderFactory.create(getApplication(), uri).use { reader ->
-                        reader.listImageEntries()
-                    }
+                    val reader = ensureActiveReader(uri)
+                    reader.listImageEntries()
                 }
             }
 
@@ -141,6 +143,7 @@ class ViewerViewModel(
                 showEntry(restoredIndex)
                 restartSlideshowLoopIfNeeded()
             }.onFailure { throwable ->
+                closeActiveReader()
                 loadingUri = null
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -153,28 +156,50 @@ class ViewerViewModel(
         }
     }
 
-    private fun showEntry(index: Int) {
+    private suspend fun showEntry(index: Int) {
         if (imageEntries.isEmpty()) return
 
         val entry = imageEntries[index]
-        viewModelScope.launch {
-            val bitmap = withContext(Dispatchers.IO) {
-                ArchiveReaderFactory.create(getApplication(), entry.archiveUri).use { reader ->
-                    reader.openEntryStream(entry).use { stream ->
-                        BitmapFactory.decodeStream(stream)
-                    }
-                }
+        val bitmap = withContext(Dispatchers.IO) {
+            val reader = ensureActiveReader(entry.archiveUri)
+            reader.openEntryStream(entry).use { stream ->
+                BitmapFactory.decodeStream(stream)
             }
-
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                currentIndex = index,
-                totalCount = imageEntries.size,
-                bitmap = bitmap,
-                errorMessage = null
-            )
-            savedStateHandle[KEY_CURRENT_INDEX] = index
         }
+
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            currentIndex = index,
+            totalCount = imageEntries.size,
+            bitmap = bitmap,
+            errorMessage = null
+        )
+        savedStateHandle[KEY_CURRENT_INDEX] = index
+    }
+
+    private suspend fun ensureActiveReader(uri: Uri): ArchiveReader {
+        val currentReader = activeReader
+        if (currentReader != null && activeReaderUri == uri) {
+            return currentReader
+        }
+
+        closeActiveReader()
+        val newReader = ArchiveReaderFactory.create(getApplication(), uri)
+        activeReader = newReader
+        activeReaderUri = uri
+        return newReader
+    }
+
+    private fun closeActiveReader() {
+        activeReader?.close()
+        activeReader = null
+        activeReaderUri = null
+    }
+
+    override fun onCleared() {
+        stopSlideshowLoop()
+        closeActiveReader()
+        super.onCleared()
     }
 
     private fun restartSlideshowLoopIfNeeded() {
@@ -185,9 +210,15 @@ class ViewerViewModel(
 
         slideshowJob = viewModelScope.launch {
             while (_uiState.value.isPlaying && imageEntries.isNotEmpty()) {
-                delay(_uiState.value.slideshowIntervalMs)
+                val intervalMs = _uiState.value.slideshowIntervalMs
+                val iterationStartedAt = System.currentTimeMillis()
                 val nextIndex = nextIndexForMode(_uiState.value.currentIndex)
                 showEntry(nextIndex)
+                val elapsedMs = System.currentTimeMillis() - iterationStartedAt
+                val remainingDelayMs = (intervalMs - elapsedMs).coerceAtLeast(0L)
+                if (remainingDelayMs > 0L) {
+                    delay(remainingDelayMs)
+                }
             }
         }
     }
