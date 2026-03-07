@@ -6,8 +6,10 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.droidshow.app.R
 import com.droidshow.app.archive.ArchiveEntryRef
 import com.droidshow.app.archive.ArchiveReaderFactory
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -86,7 +88,7 @@ class ViewerViewModel(
                         currentIndex = 0,
                         totalCount = 0,
                         bitmap = null,
-                        errorMessage = "No image entries were found in this archive."
+                        errorMessage = getApplication<Application>().getString(R.string.error_no_images)
                     )
                     stopSlideshowLoop()
                     return@onSuccess
@@ -104,7 +106,7 @@ class ViewerViewModel(
                     isLoading = false,
                     isPlaying = false,
                     bitmap = null,
-                    errorMessage = throwable.message ?: "Unable to load archive."
+                    errorMessage = errorMessageFor(throwable)
                 )
                 stopSlideshowLoop()
             }
@@ -177,5 +179,20 @@ class ViewerViewModel(
         private const val KEY_ARCHIVE_URI = "archive_uri"
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_IS_PLAYING = "is_playing"
+    }
+
+    private fun errorMessageFor(throwable: Throwable): String {
+        val app = getApplication<Application>()
+        return when {
+            throwable is IllegalArgumentException && throwable.message?.contains("Unsupported archive type") == true -> {
+                app.getString(R.string.error_unsupported_archive)
+            }
+
+            throwable is IOException || throwable.cause is IOException -> {
+                app.getString(R.string.error_corrupt_archive)
+            }
+
+            else -> app.getString(R.string.error_open_archive)
+        }
     }
 }
