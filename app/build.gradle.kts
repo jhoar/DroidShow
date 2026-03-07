@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.droidshow.app"
+    namespace = "showlio.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.droidshow.app"
+        applicationId = "showlio.app"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
