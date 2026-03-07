@@ -211,14 +211,9 @@ class ViewerViewModel(
         slideshowJob = viewModelScope.launch {
             while (_uiState.value.isPlaying && imageEntries.isNotEmpty()) {
                 val intervalMs = _uiState.value.slideshowIntervalMs
-                val iterationStartedAt = System.currentTimeMillis()
                 val nextIndex = nextIndexForMode(_uiState.value.currentIndex)
                 showEntry(nextIndex)
-                val elapsedMs = System.currentTimeMillis() - iterationStartedAt
-                val remainingDelayMs = (intervalMs - elapsedMs).coerceAtLeast(0L)
-                if (remainingDelayMs > 0L) {
-                    delay(remainingDelayMs)
-                }
+                delay(intervalMs)
             }
         }
     }
