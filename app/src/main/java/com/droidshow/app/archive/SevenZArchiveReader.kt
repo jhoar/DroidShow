@@ -76,7 +76,7 @@ class SevenZArchiveReader(
         return ArchiveEntryRef(
             archiveUri = archiveUri,
             entryPath = name,
-            compressedSize = compressedSize,
+            compressedSize = -1L,
             uncompressedSize = size,
             index = index
         )

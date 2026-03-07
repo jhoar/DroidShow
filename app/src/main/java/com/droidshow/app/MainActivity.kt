@@ -2,18 +2,105 @@ package com.droidshow.app
 
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.droidshow.app.databinding.ActivityMainBinding
+import com.droidshow.app.ui.viewer.ViewerViewModel
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
+    private val viewerViewModel: ViewerViewModel by viewModels()
+    private val archivePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@registerForActivityResult
+        persistReadPermissionIfPossible(
+            uri = uri,
+            grantFlags = android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION or
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+        )
+        viewerViewModel.loadArchiveIfNeeded(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        val openedUri: Uri? = intent?.data
-        binding.openedUriText.text = openedUri?.toString() ?: getString(R.string.no_archive_opened)
+        handleIncomingIntent(intent)
+
+        binding.openArchiveButton.setOnClickListener {
+            archivePicker.launch(ARCHIVE_MIME_TYPES)
+        }
+
+        binding.slideshowButton.setOnClickListener {
+            viewerViewModel.togglePlayback()
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewerViewModel.uiState.collect { state ->
+                    val uriText = state.archiveUri?.toString() ?: getString(R.string.no_archive_opened)
+                    val positionText = if (state.totalCount > 0) {
+                        getString(R.string.slideshow_position, state.currentIndex + 1, state.totalCount)
+                    } else {
+                        state.errorMessage ?: uriText
+                    }
+                    binding.openedUriText.text = positionText
+                    binding.loadingSpinner.visibility = if (state.isLoading) View.VISIBLE else View.GONE
+                    binding.slideshowButton.text = if (state.isPlaying) {
+                        getString(R.string.pause_slideshow)
+                    } else {
+                        getString(R.string.start_slideshow)
+                    }
+                    binding.imageView.setImageBitmap(state.bitmap)
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: android.content.Intent?) {
+        if (intent?.action != android.content.Intent.ACTION_VIEW) {
+            viewerViewModel.loadArchiveIfNeeded(intent?.data)
+            return
+        }
+
+        val uri = intent.data ?: return
+        persistReadPermissionIfPossible(uri = uri, grantFlags = intent.flags)
+        viewerViewModel.loadArchiveIfNeeded(uri)
+    }
+
+    private fun persistReadPermissionIfPossible(uri: Uri, grantFlags: Int) {
+        val hasPersistableGrant = (grantFlags and android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0
+        if (!hasPersistableGrant) return
+
+        runCatching {
+            contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    companion object {
+        private val ARCHIVE_MIME_TYPES = arrayOf(
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/vnd.comicbook+zip",
+            "application/x-cbz",
+            "application/x-rar-compressed",
+            "application/vnd.rar",
+            "application/vnd.comicbook-rar",
+            "application/x-cbr",
+            "application/x-7z-compressed",
+            "application/x-cb7"
+        )
     }
 }
