@@ -1,4 +1,8 @@
 <resources>
     <string name="app_name">DroidShow</string>
     <string name="no_archive_opened">No archive opened yet.</string>
+    <string name="open_archive">Open archive</string>
+    <string name="start_slideshow">Start slideshow</string>
+    <string name="slideshow_image">Slideshow image</string>
+    <string name="current_image">Current image</string>
 </resources>
