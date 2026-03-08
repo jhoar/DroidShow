@@ -241,20 +241,46 @@ class ViewerViewModel(
         if (imageEntries.isEmpty()) return 0
 
         return when (_uiState.value.displayMode) {
-            ViewerUiState.DisplayMode.SEQUENTIAL -> (currentIndex + 1) % imageEntries.size
-            ViewerUiState.DisplayMode.RANDOM -> {
-                val currentOrderIndex = displayOrder.indexOf(currentIndex)
-                val nextOrderIndex = if (currentOrderIndex < 0 || currentOrderIndex >= displayOrder.lastIndex) {
-                    rebuildDisplayOrder(imageEntries.getOrNull(currentIndex))
-                    1
-                } else {
-                    currentOrderIndex + 1
-                }
-
-                displayOrder.getOrElse(nextOrderIndex.coerceAtMost(displayOrder.lastIndex)) { currentIndex }
-            }
+            ViewerUiState.DisplayMode.SEQUENTIAL -> nextSequentialIndex(currentIndex)
+            ViewerUiState.DisplayMode.RANDOM -> nextRandomIndex(currentIndex)
         }
     }
+
+    private fun nextSequentialIndex(currentIndex: Int): Int =
+        ViewerIndexSelector.nextSequentialIndex(currentIndex, imageEntries.size)
+
+    private fun nextRandomIndex(currentIndex: Int): Int {
+        ensureRandomDisplayOrder(currentIndex)
+        val currentOrderPosition = currentRandomOrderPosition(currentIndex)
+        val nextOrderPosition = nextRandomOrderPosition(currentOrderPosition, currentIndex)
+        return resolveRandomImageIndex(nextOrderPosition, currentIndex)
+    }
+
+    private fun ensureRandomDisplayOrder(currentIndex: Int) {
+        if (!isRandomDisplayOrderValid()) {
+            rebuildDisplayOrder(imageEntries.getOrNull(currentIndex))
+        }
+    }
+
+    private fun isRandomDisplayOrderValid(): Boolean {
+        if (_uiState.value.displayMode != ViewerUiState.DisplayMode.RANDOM) return false
+        return ViewerIndexSelector.isRandomDisplayOrderValid(displayOrder, imageEntries.size)
+    }
+
+    private fun currentRandomOrderPosition(currentIndex: Int): Int =
+        ViewerIndexSelector.currentRandomOrderPosition(displayOrder, currentIndex)
+
+    private fun nextRandomOrderPosition(currentOrderPosition: Int, currentIndex: Int): Int {
+        if (ViewerIndexSelector.shouldRebuildRandomOrder(currentOrderPosition, displayOrder.lastIndex)) {
+            rebuildDisplayOrder(imageEntries.getOrNull(currentIndex))
+            return 1
+        }
+
+        return ViewerIndexSelector.nextRandomOrderPosition(currentOrderPosition)
+    }
+
+    private fun resolveRandomImageIndex(nextOrderPosition: Int, currentIndex: Int): Int =
+        ViewerIndexSelector.resolveRandomImageIndex(displayOrder, nextOrderPosition, currentIndex)
 
     private fun rebuildDisplayOrder(currentEntry: ArchiveEntryRef?) {
         if (imageEntries.isEmpty()) {
