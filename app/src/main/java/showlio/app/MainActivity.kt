@@ -39,17 +39,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        configureImmersiveMode()
+        initializeBinding()
+        handleIncomingIntent(intent)
+        bindClickListeners()
+        observeUiState()
+    }
+
+    private fun configureImmersiveMode() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val windowInsetsController = WindowInsetsControllerCompat(window, window.decorView)
         windowInsetsController.hide(WindowInsetsCompat.Type.systemBars())
         windowInsetsController.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
 
+    private fun initializeBinding() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+    }
 
-        handleIncomingIntent(intent)
-
+    private fun bindClickListeners() {
         binding.openArchiveButton.setOnClickListener {
             archivePicker.launch(ARCHIVE_MIME_TYPES)
         }
@@ -61,43 +71,56 @@ class MainActivity : AppCompatActivity() {
         binding.slideshowButton.setOnClickListener {
             viewerViewModel.togglePlayback()
         }
+    }
 
+    private fun observeUiState() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewerViewModel.uiState.collect { state ->
-                    slideshowIntervalSeconds = (state.slideshowIntervalMs / 1_000L).toInt()
-                    displayMode = state.displayMode
-                    val archiveFileName = state.archiveUri?.let { resolveArchiveName(it) }
-                        ?: getString(R.string.no_archive_opened)
-                    val positionText = if (state.totalCount > 0) {
-                        getString(
-                            R.string.slideshow_position_with_file,
-                            state.currentIndex + 1,
-                            state.totalCount,
-                            archiveFileName
-                        )
-                    } else {
-                        state.errorMessage ?: archiveFileName
-                    }
-                    binding.openedUriText.text = positionText
-                    binding.loadingSpinner.visibility = if (state.isLoading) View.VISIBLE else View.GONE
-                    val canControlSlideshow = state.totalCount > 0 && state.bitmap != null && !state.isLoading
-                    binding.slideshowButton.isEnabled = canControlSlideshow
-                    if (state.isPlaying) {
-                        binding.slideshowButton.setImageDrawable(
-                            ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_media_pause)
-                        )
-                        binding.slideshowButton.contentDescription = getString(R.string.pause_slideshow)
-                    } else {
-                        binding.slideshowButton.setImageDrawable(
-                            ContextCompat.getDrawable(this@MainActivity, android.R.drawable.ic_media_play)
-                        )
-                        binding.slideshowButton.contentDescription = getString(R.string.start_slideshow)
-                    }
-                    binding.imageView.setImageBitmap(state.bitmap)
+                    render(state)
                 }
             }
         }
+    }
+
+    private fun render(state: ViewerUiState) {
+        slideshowIntervalSeconds = (state.slideshowIntervalMs / 1_000L).toInt()
+        displayMode = state.displayMode
+        binding.openedUriText.text = buildPositionText(state)
+        renderLoading(state)
+        renderPlaybackButton(state)
+        binding.imageView.setImageBitmap(state.bitmap)
+    }
+
+    private fun buildPositionText(state: ViewerUiState): String {
+        val archiveFileName = state.archiveUri?.let { resolveArchiveName(it) }
+            ?: getString(R.string.no_archive_opened)
+        return MainActivityRenderPolicy.buildPositionText(
+            currentIndex = state.currentIndex,
+            totalCount = state.totalCount,
+            archiveFileName = archiveFileName,
+            errorMessage = state.errorMessage
+        ) { current, total, fileName ->
+            getString(R.string.slideshow_position_with_file, current, total, fileName)
+        }
+    }
+
+    private fun renderPlaybackButton(state: ViewerUiState) {
+        val buttonState = MainActivityRenderPolicy.playbackButtonState(
+            totalCount = state.totalCount,
+            hasBitmap = state.bitmap != null,
+            isLoading = state.isLoading,
+            isPlaying = state.isPlaying
+        )
+        binding.slideshowButton.isEnabled = buttonState.isEnabled
+        binding.slideshowButton.setImageDrawable(
+            ContextCompat.getDrawable(this@MainActivity, buttonState.iconResId)
+        )
+        binding.slideshowButton.contentDescription = getString(buttonState.contentDescriptionResId)
+    }
+
+    private fun renderLoading(state: ViewerUiState) {
+        binding.loadingSpinner.visibility = if (state.isLoading) View.VISIBLE else View.GONE
     }
 
     private fun showSettingsDialog() {
