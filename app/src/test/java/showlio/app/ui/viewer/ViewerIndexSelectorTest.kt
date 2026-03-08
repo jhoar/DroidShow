@@ -28,14 +28,27 @@ class ViewerIndexSelectorTest {
     }
 
     @Test
-    fun resolveRandomImageIndex_returnsFallbackWhenOrderPositionUnavailable() {
+    fun resolveRandomImageIndex_clampsToLastValidOrderPosition() {
         val order = listOf(2)
 
         assertEquals(
-            4,
+            2,
             ViewerIndexSelector.resolveRandomImageIndex(
                 displayOrder = order,
                 nextOrderPosition = 1,
+                currentIndex = 4
+            )
+        )
+    }
+
+
+    @Test
+    fun resolveRandomImageIndex_usesCurrentIndexWhenOrderIsEmpty() {
+        assertEquals(
+            4,
+            ViewerIndexSelector.resolveRandomImageIndex(
+                displayOrder = emptyList(),
+                nextOrderPosition = 0,
                 currentIndex = 4
             )
         )
