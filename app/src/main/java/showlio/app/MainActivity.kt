@@ -125,34 +125,52 @@ class MainActivity : AppCompatActivity() {
 
     private fun showSettingsDialog() {
         val settingsBinding = DialogSettingsBinding.inflate(layoutInflater)
-        settingsBinding.slideshowIntervalPicker.apply {
-            minValue = ViewerViewModel.MIN_INTERVAL_SECONDS
-            maxValue = ViewerViewModel.MAX_INTERVAL_SECONDS
-            descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
-            value = slideshowIntervalSeconds.coerceIn(minValue, maxValue)
-        }
+        configureIntervalPicker(
+            picker = settingsBinding.slideshowIntervalPicker,
+            intervalSeconds = slideshowIntervalSeconds
+        )
+        settingsBinding.displayModeGroup.check(checkedIdForMode(settingsBinding, displayMode))
 
-        val checkedModeId = if (displayMode == ViewerUiState.DisplayMode.RANDOM) {
-            settingsBinding.displayModeRandom.id
-        } else {
-            settingsBinding.displayModeSequential.id
-        }
-        settingsBinding.displayModeGroup.check(checkedModeId)
-
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.settings_title)
             .setView(settingsBinding.root)
             .setPositiveButton(R.string.accept) { _, _ ->
                 viewerViewModel.setSlideshowIntervalSeconds(settingsBinding.slideshowIntervalPicker.value)
-                val selectedMode = if (settingsBinding.displayModeGroup.checkedRadioButtonId == settingsBinding.displayModeRandom.id) {
-                    ViewerUiState.DisplayMode.RANDOM
-                } else {
-                    ViewerUiState.DisplayMode.SEQUENTIAL
-                }
-                viewerViewModel.setDisplayMode(selectedMode)
+                viewerViewModel.setDisplayMode(modeFromSelection(settingsBinding))
             }
             .setNegativeButton(R.string.cancel, null)
-            .show()
+            .create()
+
+        dialog.show()
+    }
+
+    private fun configureIntervalPicker(picker: NumberPicker, intervalSeconds: Int) {
+        picker.minValue = ViewerViewModel.MIN_INTERVAL_SECONDS
+        picker.maxValue = ViewerViewModel.MAX_INTERVAL_SECONDS
+        picker.descendantFocusability = NumberPicker.FOCUS_BLOCK_DESCENDANTS
+        picker.value = intervalSeconds.coerceIn(
+            ViewerViewModel.MIN_INTERVAL_SECONDS,
+            ViewerViewModel.MAX_INTERVAL_SECONDS
+        )
+    }
+
+    private fun checkedIdForMode(
+        binding: DialogSettingsBinding,
+        mode: ViewerUiState.DisplayMode
+    ): Int {
+        return if (mode == ViewerUiState.DisplayMode.RANDOM) {
+            binding.displayModeRandom.id
+        } else {
+            binding.displayModeSequential.id
+        }
+    }
+
+    private fun modeFromSelection(binding: DialogSettingsBinding): ViewerUiState.DisplayMode {
+        return if (binding.displayModeGroup.checkedRadioButtonId == binding.displayModeRandom.id) {
+            ViewerUiState.DisplayMode.RANDOM
+        } else {
+            ViewerUiState.DisplayMode.SEQUENTIAL
+        }
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
