@@ -56,8 +56,7 @@ class ViewerViewModel(
                 isPlaying = _uiState.value.isPlaying
             )
         ) {
-            _uiState.value = _uiState.value.copy(isPlaying = false)
-            savedStateHandle[KEY_IS_PLAYING] = false
+            setPlaying(playing = false, restartLoop = false)
             stopSlideshowLoop()
         }
 
@@ -66,15 +65,12 @@ class ViewerViewModel(
 
     fun togglePlayback() {
         if (imageEntries.isEmpty()) {
-            _uiState.value = _uiState.value.copy(isPlaying = false)
-            savedStateHandle[KEY_IS_PLAYING] = false
+            setPlaying(playing = false, restartLoop = false)
             return
         }
 
         val shouldPlay = !_uiState.value.isPlaying
-        _uiState.value = _uiState.value.copy(isPlaying = shouldPlay)
-        savedStateHandle[KEY_IS_PLAYING] = shouldPlay
-        restartSlideshowLoopIfNeeded()
+        setPlaying(playing = shouldPlay)
     }
 
     fun setSlideshowIntervalSeconds(seconds: Int) {
@@ -97,12 +93,7 @@ class ViewerViewModel(
 
     private fun loadArchive(uri: Uri, resetPosition: Boolean) {
         loadingUri = uri
-        _uiState.value = _uiState.value.copy(
-            archiveUri = uri,
-            isLoading = true,
-            errorMessage = null
-        )
-        savedStateHandle[KEY_ARCHIVE_URI] = uri.toString()
+        updateLoadingState(uri)
 
         val initialIndex = ViewerStatePolicy.initialIndexForLoad(
             resetPosition = resetPosition,
@@ -122,13 +113,8 @@ class ViewerViewModel(
                 loadingUri = null
                 imageEntries = entries
                 if (entries.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        isPlaying = false,
-                        currentIndex = 0,
-                        totalCount = 0,
-                        bitmap = null,
-                        errorMessage = getApplication<Application>().getString(R.string.error_no_images)
+                    clearContentWithError(
+                        message = getApplication<Application>().getString(R.string.error_no_images)
                     )
                     stopSlideshowLoop()
                     return@onSuccess
@@ -145,15 +131,48 @@ class ViewerViewModel(
             }.onFailure { throwable ->
                 closeActiveReader()
                 loadingUri = null
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    isPlaying = false,
-                    bitmap = null,
-                    errorMessage = errorMessageFor(throwable)
-                )
+                clearContentWithError(message = errorMessageFor(throwable))
                 stopSlideshowLoop()
             }
         }
+    }
+
+    private fun setPlaying(playing: Boolean, restartLoop: Boolean = true) {
+        _uiState.value = _uiState.value.copy(isPlaying = playing)
+        syncSavedStateFromUiState()
+        if (restartLoop) {
+            restartSlideshowLoopIfNeeded()
+        }
+    }
+
+    private fun updateLoadingState(uri: Uri?) {
+        _uiState.value = _uiState.value.copy(
+            archiveUri = uri,
+            isLoading = uri != null,
+            errorMessage = null
+        )
+        syncSavedStateFromUiState()
+    }
+
+    private fun clearContentWithError(message: String, stopPlayback: Boolean = true) {
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            isPlaying = if (stopPlayback) false else _uiState.value.isPlaying,
+            currentIndex = 0,
+            totalCount = 0,
+            bitmap = null,
+            errorMessage = message
+        )
+        syncSavedStateFromUiState()
+    }
+
+    private fun syncSavedStateFromUiState() {
+        val state = _uiState.value
+        savedStateHandle[KEY_IS_PLAYING] = state.isPlaying
+        savedStateHandle[KEY_ARCHIVE_URI] = state.archiveUri?.toString()
+        savedStateHandle[KEY_CURRENT_INDEX] = state.currentIndex
+        savedStateHandle[KEY_SLIDESHOW_INTERVAL_MS] = state.slideshowIntervalMs
+        savedStateHandle[KEY_DISPLAY_MODE] = state.displayMode.name
     }
 
     private suspend fun showEntry(index: Int) {
