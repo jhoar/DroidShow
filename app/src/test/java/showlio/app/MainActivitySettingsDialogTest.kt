@@ -1,6 +1,8 @@
 package showlio.app
 
+import android.view.ContextThemeWrapper
 import android.widget.NumberPicker
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,8 +17,8 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `configureIntervalPicker applies bounds and clamps interval`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
-        val picker = NumberPicker(activity)
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
+        val picker = NumberPicker(themedContext())
 
         activity.invokeConfigureIntervalPicker(picker = picker, intervalSeconds = Int.MAX_VALUE)
 
@@ -32,7 +34,7 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `checkedIdForMode maps random and sequential to expected radio ids`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
         val binding = DialogSettingsBinding.inflate(activity.layoutInflater)
 
         val randomId = activity.invokeCheckedIdForMode(binding, ViewerUiState.DisplayMode.RANDOM)
@@ -44,7 +46,7 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `modeFromSelection returns random when random radio is checked`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
         val binding = DialogSettingsBinding.inflate(activity.layoutInflater)
         binding.displayModeGroup.check(binding.displayModeRandom.id)
 
@@ -55,7 +57,7 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `modeFromSelection defaults to sequential when random radio is not checked`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).setup().get()
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
         val binding = DialogSettingsBinding.inflate(activity.layoutInflater)
         binding.displayModeGroup.check(binding.displayModeSequential.id)
 
@@ -63,6 +65,11 @@ class MainActivitySettingsDialogTest {
 
         assertEquals(ViewerUiState.DisplayMode.SEQUENTIAL, mode)
     }
+
+    private fun themedContext() = ContextThemeWrapper(
+        ApplicationProvider.getApplicationContext(),
+        R.style.Theme_DroidShow
+    )
 
     private fun MainActivity.invokeConfigureIntervalPicker(picker: NumberPicker, intervalSeconds: Int) {
         val method = MainActivity::class.java.getDeclaredMethod(
