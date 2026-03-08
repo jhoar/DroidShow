@@ -1,12 +1,12 @@
 package showlio.app
 
 import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
 import android.widget.NumberPicker
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import showlio.app.databinding.DialogSettingsBinding
 import showlio.app.ui.viewer.ViewerUiState
@@ -17,7 +17,7 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `configureIntervalPicker applies bounds and clamps interval`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
+        val activity = MainActivity()
         val picker = NumberPicker(themedContext())
 
         activity.invokeConfigureIntervalPicker(picker = picker, intervalSeconds = Int.MAX_VALUE)
@@ -34,8 +34,8 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `checkedIdForMode maps random and sequential to expected radio ids`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
-        val binding = DialogSettingsBinding.inflate(activity.layoutInflater)
+        val activity = MainActivity()
+        val binding = DialogSettingsBinding.inflate(LayoutInflater.from(themedContext()))
 
         val randomId = activity.invokeCheckedIdForMode(binding, ViewerUiState.DisplayMode.RANDOM)
         val sequentialId = activity.invokeCheckedIdForMode(binding, ViewerUiState.DisplayMode.SEQUENTIAL)
@@ -46,8 +46,8 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `modeFromSelection returns random when random radio is checked`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
-        val binding = DialogSettingsBinding.inflate(activity.layoutInflater)
+        val activity = MainActivity()
+        val binding = DialogSettingsBinding.inflate(LayoutInflater.from(themedContext()))
         binding.displayModeGroup.check(binding.displayModeRandom.id)
 
         val mode = activity.invokeModeFromSelection(binding)
@@ -57,8 +57,8 @@ class MainActivitySettingsDialogTest {
 
     @Test
     fun `modeFromSelection defaults to sequential when random radio is not checked`() {
-        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
-        val binding = DialogSettingsBinding.inflate(activity.layoutInflater)
+        val activity = MainActivity()
+        val binding = DialogSettingsBinding.inflate(LayoutInflater.from(themedContext()))
         binding.displayModeGroup.check(binding.displayModeSequential.id)
 
         val mode = activity.invokeModeFromSelection(binding)
