@@ -1,6 +1,7 @@
 package showlio.app.ui.viewer
 
 import android.app.Application
+import androidx.test.core.app.ApplicationProvider
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import org.junit.Assert.assertEquals
@@ -8,7 +9,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ViewerViewModelStateSyncTest {
 
     @Test
@@ -82,7 +86,7 @@ class ViewerViewModelStateSyncTest {
     private fun createViewModel(): Pair<ViewerViewModel, SavedStateHandle> {
         val savedStateHandle = SavedStateHandle()
         val viewModel = ViewerViewModel(
-            application = Application(),
+            application = ApplicationProvider.getApplicationContext<Application>(),
             savedStateHandle = savedStateHandle
         )
         return viewModel to savedStateHandle
