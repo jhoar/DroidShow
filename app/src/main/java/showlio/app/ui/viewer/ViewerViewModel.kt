@@ -25,6 +25,8 @@ class ViewerViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
+    private val strictImageDecodeChecks: Boolean = STRICT_IMAGE_DECODE_CHECKS
+
     private val _uiState = MutableStateFlow(ViewerUiState())
     val uiState: StateFlow<ViewerUiState> = _uiState.asStateFlow()
 
@@ -181,7 +183,7 @@ class ViewerViewModel(
         val decodeResult = runCatching {
             withContext(Dispatchers.IO) {
                 val reader = ensureActiveReader(entry.archiveUri)
-                ViewerImageDecoder.decode {
+                ViewerImageDecoder.decode(strictChecks = strictImageDecodeChecks) {
                     reader.openEntryStream(entry)
                 }
             }
@@ -350,6 +352,10 @@ class ViewerViewModel(
     companion object {
         const val MIN_INTERVAL_SECONDS = 1
         const val MAX_INTERVAL_SECONDS = 30
+
+        // Code-level toggle for stricter metadata validation in ViewerImageDecoder.
+        // Keep disabled by default to avoid the extra bounds-read pass.
+        private const val STRICT_IMAGE_DECODE_CHECKS = false
         private const val DEFAULT_SLIDESHOW_INTERVAL_MS = 3_000L
         private const val KEY_ARCHIVE_URI = "archive_uri"
         private const val KEY_CURRENT_INDEX = "current_index"
