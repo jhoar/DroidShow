@@ -22,7 +22,8 @@ import kotlin.random.Random
 
 class ViewerViewModel(
     application: Application,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val strictImageDecodeChecks: Boolean = false
 ) : AndroidViewModel(application) {
 
 
