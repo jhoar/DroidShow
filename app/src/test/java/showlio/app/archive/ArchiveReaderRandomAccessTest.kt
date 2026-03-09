@@ -8,11 +8,14 @@ import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.io.File
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.random.Random
 
+@RunWith(RobolectricTestRunner::class)
 class ArchiveReaderRandomAccessTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
