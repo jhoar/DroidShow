@@ -16,8 +16,12 @@ internal object ViewerImageDecoder {
             inJustDecodeBounds = true
         }
 
-        streamProvider().use { stream ->
-            BitmapFactory.decodeStream(stream, null, boundsOptions)
+        try {
+            streamProvider().use { stream ->
+                BitmapFactory.decodeStream(stream, null, boundsOptions)
+            }
+        } catch (error: RuntimeException) {
+            throw ImageDecodeException("Unable to read image dimensions.", error)
         }
 
         val width = boundsOptions.outWidth
@@ -38,9 +42,13 @@ internal object ViewerImageDecoder {
             inDither = false
         }
 
-        return streamProvider().use { stream ->
-            BitmapFactory.decodeStream(stream, null, decodeOptions)
-        } ?: throw ImageDecodeException("Failed to decode image.")
+        return try {
+            streamProvider().use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOptions)
+            } ?: throw ImageDecodeException("Failed to decode image.")
+        } catch (error: RuntimeException) {
+            throw ImageDecodeException("Failed to decode image.", error)
+        }
     }
 
     private fun calculateInSampleSize(width: Int, height: Int): Int {
@@ -58,4 +66,5 @@ internal object ViewerImageDecoder {
     }
 }
 
-internal class ImageDecodeException(message: String) : IllegalArgumentException(message)
+internal class ImageDecodeException(message: String, cause: Throwable? = null) :
+    IllegalArgumentException(message, cause)

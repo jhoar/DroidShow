@@ -8,12 +8,15 @@ import java.util.zip.CRC32
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+@RunWith(RobolectricTestRunner::class)
 class ViewerImageDecoderTest {
 
     @Test
     fun `decode rejects oversized image dimensions from metadata`() {
-        val oversizedPngBytes = pngBytes(width = 20_000, height = 20_000)
+        val oversizedPngBytes = oversizedPngBytes()
 
         val error = runCatching {
             ViewerImageDecoder.decode { ByteArrayInputStream(oversizedPngBytes) }
@@ -33,6 +36,26 @@ class ViewerImageDecoderTest {
         assertEquals(120, decoded.height)
     }
 
+    private fun oversizedPngBytes(): ByteArray {
+        val base = normalPngBytes(width = 1, height = 1)
+        val out = base.copyOf()
+        val ihdrStart = PNG_SIGNATURE_BYTES + CHUNK_HEADER_BYTES
+
+        ByteBuffer.wrap(out, ihdrStart, 13).apply {
+            putInt(20_000)
+            putInt(20_000)
+        }
+
+        val typeOffset = PNG_SIGNATURE_BYTES + CHUNK_LENGTH_BYTES
+        val crcInputLength = CHUNK_TYPE_BYTES + 13
+        val crc = CRC32().apply {
+            update(out, typeOffset, crcInputLength)
+        }.value.toInt()
+
+        ByteBuffer.wrap(out, ihdrStart + 13, CHUNK_CRC_BYTES).putInt(crc)
+        return out
+    }
+
     private fun normalPngBytes(width: Int, height: Int): ByteArray {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         return ByteArrayOutputStream().use { output ->
@@ -42,45 +65,11 @@ class ViewerImageDecoderTest {
         }
     }
 
-    private fun pngBytes(width: Int, height: Int): ByteArray {
-        val signature = byteArrayOf(
-            0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
-        )
-        val ihdrData = ByteBuffer.allocate(13)
-            .putInt(width)
-            .putInt(height)
-            .put(8)
-            .put(6)
-            .put(0)
-            .put(0)
-            .put(0)
-            .array()
-
-        val idatData = byteArrayOf(
-            0x78.toByte(), 0x9C.toByte(), 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01
-        )
-
-        return ByteArrayOutputStream().use { output ->
-            output.write(signature)
-            output.write(chunk("IHDR", ihdrData))
-            output.write(chunk("IDAT", idatData))
-            output.write(chunk("IEND", byteArrayOf()))
-            output.toByteArray()
-        }
-    }
-
-    private fun chunk(type: String, data: ByteArray): ByteArray {
-        val typeBytes = type.toByteArray(Charsets.US_ASCII)
-        val crc = CRC32().apply {
-            update(typeBytes)
-            update(data)
-        }.value.toInt()
-
-        return ByteBuffer.allocate(4 + typeBytes.size + data.size + 4)
-            .putInt(data.size)
-            .put(typeBytes)
-            .put(data)
-            .putInt(crc)
-            .array()
+    companion object {
+        private const val PNG_SIGNATURE_BYTES = 8
+        private const val CHUNK_LENGTH_BYTES = 4
+        private const val CHUNK_TYPE_BYTES = 4
+        private const val CHUNK_CRC_BYTES = 4
+        private const val CHUNK_HEADER_BYTES = CHUNK_LENGTH_BYTES + CHUNK_TYPE_BYTES
     }
 }
