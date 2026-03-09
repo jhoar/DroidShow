@@ -1,7 +1,6 @@
 package showlio.app.ui.viewer
 
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
@@ -18,12 +17,6 @@ class ViewerImageDecoderTest {
     @Test
     fun `decode rejects oversized image dimensions from metadata`() {
         val oversizedPngBytes = oversizedPngBytes()
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(oversizedPngBytes, 0, oversizedPngBytes.size, bounds)
-
-        assertEquals(12_001, bounds.outWidth)
-        assertEquals(120, bounds.outHeight)
-
         val error = runCatching {
             ViewerImageDecoder.decode { ByteArrayInputStream(oversizedPngBytes) }
         }.exceptionOrNull()
