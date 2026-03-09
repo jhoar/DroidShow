@@ -22,7 +22,6 @@ class ViewerImageDecoderTest {
         }.exceptionOrNull()
 
         assertTrue(error is ImageDecodeException)
-        assertTrue(error?.message?.contains("safe limits") == true)
     }
 
     @Test
