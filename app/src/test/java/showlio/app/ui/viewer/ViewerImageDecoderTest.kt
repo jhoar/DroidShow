@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.CRC32
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -15,10 +16,13 @@ import org.robolectric.RobolectricTestRunner
 class ViewerImageDecoderTest {
 
     @Test
-    fun `decode rejects oversized image dimensions from metadata`() {
+    fun `decode rejects oversized image dimensions from metadata in strict mode`() {
         val oversizedPngBytes = oversizedPngBytes()
         val error = runCatching {
-            ViewerImageDecoder.decode { ByteArrayInputStream(oversizedPngBytes) }
+            ViewerImageDecoder.decode(
+                streamProvider = { ByteArrayInputStream(oversizedPngBytes) },
+                strictChecks = true
+            )
         }.exceptionOrNull()
 
         assertTrue(error is ImageDecodeException)
@@ -32,6 +36,24 @@ class ViewerImageDecoderTest {
 
         assertEquals(200, decoded.width)
         assertEquals(120, decoded.height)
+    }
+
+    @Test
+    fun `decode in non strict mode opens stream only once`() {
+        val imageBytes = normalPngBytes(width = 200, height = 120)
+        val openCount = AtomicInteger(0)
+
+        val decoded = ViewerImageDecoder.decode(
+            streamProvider = {
+                openCount.incrementAndGet()
+                ByteArrayInputStream(imageBytes)
+            },
+            strictChecks = false
+        )
+
+        assertEquals(200, decoded.width)
+        assertEquals(120, decoded.height)
+        assertEquals(1, openCount.get())
     }
 
     private fun oversizedPngBytes(): ByteArray {
