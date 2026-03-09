@@ -21,7 +21,11 @@
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
+                <!--
+                    Accept only content:// archives delivered by trusted Android components
+                    (DocumentProvider/file manager/share sheet). We intentionally do not expose
+                    this as a browsable web deep link surface.
+                -->
 
                 <data android:scheme="content" />
                 <data android:mimeType="application/zip" />
@@ -41,18 +45,17 @@
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
+                <!--
+                    Extension fallback for providers that omit or mislabel MIME type.
+                    Threat model: narrow to content:// only and accepted archive extensions;
+                    avoid file:// and wildcard MIME matching to reduce unintended URI handling.
+                -->
 
-                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.zip" />
-                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.rar" />
-                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.7z" />
-                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.cbz" />
-                <data android:scheme="content" android:mimeType="*/*" android:pathPattern=".*\\.cbr" />
-                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.zip" />
-                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.rar" />
-                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.7z" />
-                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.cbz" />
-                <data android:scheme="file" android:mimeType="*/*" android:pathPattern=".*\\.cbr" />
+                <data android:scheme="content" android:pathPattern=".*\\.zip" />
+                <data android:scheme="content" android:pathPattern=".*\\.rar" />
+                <data android:scheme="content" android:pathPattern=".*\\.7z" />
+                <data android:scheme="content" android:pathPattern=".*\\.cbz" />
+                <data android:scheme="content" android:pathPattern=".*\\.cbr" />
             </intent-filter>
         </activity>
     </application>
