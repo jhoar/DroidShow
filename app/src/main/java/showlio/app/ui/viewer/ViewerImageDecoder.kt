@@ -11,7 +11,11 @@ internal object ViewerImageDecoder {
     private const val MAX_TOTAL_PIXELS = 40_000_000L
     private const val MAX_BITMAP_BYTES = 32L * 1024L * 1024L
 
-    fun decode(streamProvider: () -> InputStream): Bitmap {
+    fun decode(strictChecks: Boolean = false, streamProvider: () -> InputStream): Bitmap {
+        if (!strictChecks) {
+            return decodeBitmap(streamProvider)
+        }
+
         val boundsOptions = BitmapFactory.Options().apply {
             inJustDecodeBounds = true
         }
@@ -42,14 +46,20 @@ internal object ViewerImageDecoder {
             inDither = false
         }
 
-        return try {
+        return decodeBitmap(streamProvider, decodeOptions)
+    }
+
+    private fun decodeBitmap(
+        streamProvider: () -> InputStream,
+        decodeOptions: BitmapFactory.Options? = null
+    ): Bitmap =
+        try {
             streamProvider().use { stream ->
                 BitmapFactory.decodeStream(stream, null, decodeOptions)
             } ?: throw ImageDecodeException("Failed to decode image.")
         } catch (error: RuntimeException) {
             throw ImageDecodeException("Failed to decode image.", error)
         }
-    }
 
     private fun calculateInSampleSize(width: Int, height: Int): Int {
         var sampleSize = 1

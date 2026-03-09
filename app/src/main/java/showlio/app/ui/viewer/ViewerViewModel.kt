@@ -22,7 +22,8 @@ import kotlin.random.Random
 
 class ViewerViewModel(
     application: Application,
-    private val savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle,
+    private val strictImageDecodeChecks: Boolean = false
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(ViewerUiState())
@@ -181,7 +182,7 @@ class ViewerViewModel(
         val decodeResult = runCatching {
             withContext(Dispatchers.IO) {
                 val reader = ensureActiveReader(entry.archiveUri)
-                ViewerImageDecoder.decode {
+                ViewerImageDecoder.decode(strictChecks = strictImageDecodeChecks) {
                     reader.openEntryStream(entry)
                 }
             }
