@@ -1,7 +1,6 @@
 package showlio.app.ui.viewer
 
 import android.app.Application
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
@@ -179,21 +178,31 @@ class ViewerViewModel(
         if (imageEntries.isEmpty()) return
 
         val entry = imageEntries[index]
-        val bitmap = withContext(Dispatchers.IO) {
-            val reader = ensureActiveReader(entry.archiveUri)
-            reader.openEntryStream(entry).use { stream ->
-                BitmapFactory.decodeStream(stream)
+        val decodeResult = runCatching {
+            withContext(Dispatchers.IO) {
+                val reader = ensureActiveReader(entry.archiveUri)
+                ViewerImageDecoder.decode {
+                    reader.openEntryStream(entry)
+                }
             }
         }
 
-        _uiState.value = _uiState.value.copy(
-            isLoading = false,
-            currentIndex = index,
-            totalCount = imageEntries.size,
-            bitmap = bitmap,
-            errorMessage = null
-        )
-        savedStateHandle[KEY_CURRENT_INDEX] = index
+        decodeResult.onSuccess { bitmap ->
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                currentIndex = index,
+                totalCount = imageEntries.size,
+                bitmap = bitmap,
+                errorMessage = null
+            )
+            savedStateHandle[KEY_CURRENT_INDEX] = index
+        }.onFailure {
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                bitmap = null,
+                errorMessage = getApplication<Application>().getString(R.string.error_corrupt_image)
+            )
+        }
     }
 
     private suspend fun ensureActiveReader(uri: Uri): ArchiveReader {
