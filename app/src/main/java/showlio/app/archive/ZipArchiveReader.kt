@@ -2,44 +2,60 @@ package showlio.app.archive
 
 import android.content.Context
 import android.net.Uri
-import java.io.FilterInputStream
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
+import org.apache.commons.compress.archivers.zip.ZipFile
 import java.io.InputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
 
 class ZipArchiveReader(
-    private val context: Context,
+    context: Context,
     private val archiveUri: Uri
 ) : ArchiveReader {
 
-    private val imageEntries by lazy {
-        buildList {
-            openArchiveStream().use { input ->
-                ZipInputStream(input).use { zip ->
-                    var entry: ZipEntry? = zip.nextEntry
-                    var index = 0
-                    while (true) {
-                        val currentEntry = entry ?: break
-                        val name = currentEntry.name
-                        if (!currentEntry.isDirectory && ArchiveEntrySupport.isImageEntry(name)) {
-                            add(
-                                ArchiveEntryRef(
-                                    archiveUri = archiveUri,
-                                    entryPath = name,
-                                    compressedSize = currentEntry.compressedSize,
-                                    uncompressedSize = currentEntry.size,
-                                    index = index
-                                )
-                            )
-                        }
-                        index++
-                        zip.closeEntry()
-                        entry = zip.nextEntry
-                    }
-                }
+    private val tempArchive = TempArchiveFile(context, archiveUri, ".zip")
+
+    private data class ZipEntryMetadata(
+        val ref: ArchiveEntryRef,
+        val entry: ZipArchiveEntry,
+        val localHeaderOffset: Long
+    )
+
+    private val indexedEntries by lazy {
+        val discovered = mutableListOf<ZipEntryMetadata>()
+        val zipFile = requireZipFile()
+        val entries = zipFile.entries
+        var index = 0
+        while (entries.hasMoreElements()) {
+            val currentEntry = entries.nextElement()
+            val name = currentEntry.name
+            if (!currentEntry.isDirectory && ArchiveEntrySupport.isImageEntry(name)) {
+                discovered += ZipEntryMetadata(
+                    ref = ArchiveEntryRef(
+                        archiveUri = archiveUri,
+                        entryPath = name,
+                        compressedSize = currentEntry.compressedSize,
+                        uncompressedSize = currentEntry.size,
+                        index = index
+                    ),
+                    entry = currentEntry,
+                    localHeaderOffset = currentEntry.localHeaderOffset
+                )
             }
-        }.sortedWith(compareBy(ArchiveEntrySupport.naturalPathComparator) { it.entryPath })
+            index++
+        }
+        discovered
     }
+
+    private val metadataByIndexAndPath by lazy {
+        indexedEntries.associateBy { it.ref.index to it.ref.entryPath }
+    }
+
+    private val imageEntries by lazy {
+        indexedEntries
+            .map { it.ref }
+            .sortedWith(compareBy(ArchiveEntrySupport.naturalPathComparator) { it.entryPath })
+    }
+
+    private var zipFile: ZipFile? = null
 
     override fun listImageEntries(): List<ArchiveEntryRef> = imageEntries
 
@@ -48,33 +64,28 @@ class ZipArchiveReader(
             "Archive entry does not belong to this archive reader."
         }
 
-        val baseStream = openArchiveStream()
-        val zipInputStream = ZipInputStream(baseStream)
-        var current = zipInputStream.nextEntry
-        var currentIndex = 0
-        while (current != null) {
-            if (!current.isDirectory && currentIndex == entry.index && current.name == entry.entryPath) {
-                return object : FilterInputStream(zipInputStream) {
-                    override fun close() {
-                        super.close()
-                        baseStream.close()
-                    }
-                }
-            }
-            zipInputStream.closeEntry()
-            current = zipInputStream.nextEntry
-            currentIndex++
-        }
+        val metadata = metadataByIndexAndPath[entry.index to entry.entryPath]
+            ?: throw IllegalArgumentException("ZIP entry not found: ${entry.entryPath}")
 
-        zipInputStream.close()
-        throw IllegalArgumentException("ZIP entry not found: ${entry.entryPath}")
+        return requireZipFile().getInputStream(metadata.entry)
     }
 
-    override fun close() = Unit
+    override fun close() {
+        zipFile?.close()
+        zipFile = null
+        tempArchive.cleanup()
+    }
 
-    private fun openArchiveStream(): InputStream {
-        return requireNotNull(context.contentResolver.openInputStream(archiveUri)) {
-            "Unable to open archive URI: $archiveUri"
+    @Synchronized
+    private fun requireZipFile(): ZipFile {
+        val existing = zipFile
+        if (existing != null) {
+            return existing
         }
+
+        return ZipFile.builder()
+            .setFile(tempArchive.file)
+            .get()
+            .also { zipFile = it }
     }
 }
