@@ -49,10 +49,23 @@ class MainActivityIntentFiltersTest {
     }
 
     @Test
-    fun doesNotResolveWildcardMimeFallback() {
+    fun resolvesWildcardMimeForKnownArchiveType() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             addCategory(Intent.CATEGORY_DEFAULT)
             setDataAndType(Uri.parse("content://provider/docs/archive.zip"), "*/*")
+            setPackage(context.packageName)
+        }
+
+        // Android's intent resolution treats */* as compatible with concrete MIME filters,
+        // so this still resolves via the explicit archive MIME declarations.
+        assertTrue(resolvesToMainActivity(intent))
+    }
+
+    @Test
+    fun doesNotResolveUnknownTypeWithUnknownExtension() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            setDataAndType(Uri.parse("content://provider/docs/readme.txt"), "text/plain")
             setPackage(context.packageName)
         }
 
