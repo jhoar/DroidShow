@@ -25,7 +25,6 @@ class ViewerViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
-    private val strictImageDecodeChecks: Boolean = STRICT_IMAGE_DECODE_CHECKS
 
     private val _uiState = MutableStateFlow(ViewerUiState())
     val uiState: StateFlow<ViewerUiState> = _uiState.asStateFlow()
@@ -183,7 +182,7 @@ class ViewerViewModel(
         val decodeResult = runCatching {
             withContext(Dispatchers.IO) {
                 val reader = ensureActiveReader(entry.archiveUri)
-                ViewerImageDecoder.decode(strictChecks = strictImageDecodeChecks) {
+                ViewerImageDecoder.decode(strictChecks = STRICT_IMAGE_DECODE_CHECKS) {
                     reader.openEntryStream(entry)
                 }
             }
