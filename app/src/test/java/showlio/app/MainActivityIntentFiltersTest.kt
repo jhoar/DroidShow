@@ -1,0 +1,80 @@
+package showlio.app
+
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class MainActivityIntentFiltersTest {
+
+    private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    @Test
+    fun resolvesContentArchiveWhenMimeTypeIsExplicit() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            setDataAndType(Uri.parse("content://provider/docs/archive.cbz"), "application/vnd.comicbook+zip")
+            setPackage(context.packageName)
+        }
+
+        assertTrue(resolvesToMainActivity(intent))
+    }
+
+    @Test
+    fun resolvesContentArchiveByExtensionWhenMimeTypeMissing() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            data = Uri.parse("content://provider/docs/archive.cbr")
+            setPackage(context.packageName)
+        }
+
+        assertTrue(resolvesToMainActivity(intent))
+    }
+
+    @Test
+    fun doesNotResolveFileSchemeArchive() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            data = Uri.parse("file:///sdcard/Download/archive.cbz")
+            setPackage(context.packageName)
+        }
+
+        assertFalse(resolvesToMainActivity(intent))
+    }
+
+    @Test
+    fun doesNotResolveWildcardMimeFallback() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            setDataAndType(Uri.parse("content://provider/docs/archive.zip"), "*/*")
+            setPackage(context.packageName)
+        }
+
+        assertFalse(resolvesToMainActivity(intent))
+    }
+
+    @Test
+    fun doesNotResolveBrowsableEntry() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+            setDataAndType(Uri.parse("content://provider/docs/archive.zip"), "application/zip")
+            setPackage(context.packageName)
+        }
+
+        assertFalse(resolvesToMainActivity(intent))
+    }
+
+    private fun resolvesToMainActivity(intent: Intent): Boolean {
+        val matches = context.packageManager.queryIntentActivities(
+            intent,
+            PackageManager.MATCH_DEFAULT_ONLY
+        )
+        return matches.any { it.activityInfo?.name == MainActivity::class.java.name }
+    }
+}
