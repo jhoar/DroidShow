@@ -114,8 +114,31 @@ case "$( uname )" in                #(
   NONSTOP* )        nonstop=true ;;
 esac
 
-CLASSPATH="\\\"\\\""
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
+# Require a pre-seeded wrapper distribution to prevent network downloads.
+WRAPPER_PROPERTIES="$APP_HOME/gradle/wrapper/gradle-wrapper.properties"
+DISTRIBUTION_URL=$(sed -n 's/^distributionUrl=//p' "$WRAPPER_PROPERTIES" | sed 's#\\:#:#g')
+[ -n "$DISTRIBUTION_URL" ] || die "ERROR: Unable to determine distributionUrl from $WRAPPER_PROPERTIES"
+ZIP_NAME=${DISTRIBUTION_URL##*/}
+DIST_NAME=${ZIP_NAME%.zip}
+URL_HASH=$(python - "$DISTRIBUTION_URL" <<'PYHASH'
+import hashlib, sys
+url = sys.argv[1]
+digest = hashlib.md5(url.encode('utf-8')).digest()
+value = int.from_bytes(digest, 'big')
+chars = '0123456789abcdefghijklmnopqrstuvwxyz'
+out = ''
+while value:
+    value, rem = divmod(value, 36)
+    out = chars[rem] + out
+print(out or '0')
+PYHASH
+)
+GRADLE_USER_HOME_DIR=${GRADLE_USER_HOME:-$HOME/.gradle}
+WRAPPER_ZIP_PATH="$GRADLE_USER_HOME_DIR/wrapper/dists/$DIST_NAME/$URL_HASH/$ZIP_NAME"
+[ -f "$WRAPPER_ZIP_PATH" ] || die "ERROR: Pre-seeded Gradle distribution not found: $WRAPPER_ZIP_PATH
+Run scripts/preseed-gradle-wrapper.sh --zip /path/to/$ZIP_NAME"
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
@@ -213,7 +236,7 @@ DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 set -- \
         "-Dorg.gradle.appname=$APP_BASE_NAME" \
         -classpath "$CLASSPATH" \
-        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
+        org.gradle.wrapper.GradleWrapperMain \
         "$@"
 
 # Stop when "xargs" is not available.

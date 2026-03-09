@@ -70,11 +70,29 @@ goto fail
 :execute
 @rem Setup the command line
 
-set CLASSPATH=
+set CLASSPATH=%APP_HOME%\gradle\wrapper\gradle-wrapper.jar
 
+@rem Require pre-seeded wrapper distribution to prevent network downloads.
+set WRAPPER_PROPERTIES=%APP_HOME%\gradle\wrapper\gradle-wrapper.properties
+for /f "tokens=1,* delims==" %%A in ('findstr /B "distributionUrl=" "%WRAPPER_PROPERTIES%"') do set DIST_URL=%%B
+if "%DIST_URL%"=="" (
+  echo ERROR: Unable to determine distributionUrl from %WRAPPER_PROPERTIES% 1>&2
+  goto fail
+)
+set DIST_URL=%DIST_URL:\:=:%
+for %%I in ("%DIST_URL%") do set ZIP_NAME=%%~nxI
+set DIST_NAME=%ZIP_NAME:.zip=%
+if not defined GRADLE_USER_HOME set GRADLE_USER_HOME=%USERPROFILE%\.gradle
+for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command "$u='%DIST_URL%';$d=[System.Security.Cryptography.MD5]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($u));$v=[System.Numerics.BigInteger]::new($d + [byte[]](0));$chars='0123456789abcdefghijklmnopqrstuvwxyz';if($v -eq 0){'0'}else{$o='';while($v -gt 0){$r=$v %% 36;$o=$chars[$r]+$o;$v=[System.Numerics.BigInteger]::op_Division($v,36)};$o}"`) do set URL_HASH=%%H
+set WRAPPER_ZIP_PATH=%GRADLE_USER_HOME%\wrapper\dists\%DIST_NAME%\%URL_HASH%\%ZIP_NAME%
+if not exist "%WRAPPER_ZIP_PATH%" (
+  echo ERROR: Pre-seeded Gradle distribution not found: %WRAPPER_ZIP_PATH% 1>&2
+  echo Run scripts\preseed-gradle-wrapper.sh --zip /path/to/%ZIP_NAME% 1>&2
+  goto fail
+)
 
 @rem Execute Gradle
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" -jar "%APP_HOME%\gradle\wrapper\gradle-wrapper.jar" %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %GRADLE_OPTS% "-Dorg.gradle.appname=%APP_BASE_NAME%" -classpath "%CLASSPATH%" org.gradle.wrapper.GradleWrapperMain %*
 
 :end
 @rem End local scope for the variables with windows NT shell
