@@ -19,10 +19,9 @@ class ViewerImageDecoderTest {
     fun `decode rejects oversized image dimensions from metadata in strict mode`() {
         val oversizedPngBytes = oversizedPngBytes()
         val error = runCatching {
-            ViewerImageDecoder.decode(
-                streamProvider = { ByteArrayInputStream(oversizedPngBytes) },
-                strictChecks = true
-            )
+            ViewerImageDecoder.decode(strictChecks = true) {
+                ByteArrayInputStream(oversizedPngBytes)
+            }
         }.exceptionOrNull()
 
         assertTrue(error is ImageDecodeException)
@@ -43,13 +42,10 @@ class ViewerImageDecoderTest {
         val imageBytes = normalPngBytes(width = 200, height = 120)
         val openCount = AtomicInteger(0)
 
-        val decoded = ViewerImageDecoder.decode(
-            streamProvider = {
-                openCount.incrementAndGet()
-                ByteArrayInputStream(imageBytes)
-            },
-            strictChecks = false
-        )
+        val decoded = ViewerImageDecoder.decode(strictChecks = false) {
+            openCount.incrementAndGet()
+            ByteArrayInputStream(imageBytes)
+        }
 
         assertEquals(200, decoded.width)
         assertEquals(120, decoded.height)

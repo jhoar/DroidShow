@@ -182,10 +182,9 @@ class ViewerViewModel(
         val decodeResult = runCatching {
             withContext(Dispatchers.IO) {
                 val reader = ensureActiveReader(entry.archiveUri)
-                ViewerImageDecoder.decode(
-                    streamProvider = { reader.openEntryStream(entry) },
-                    strictChecks = strictImageDecodeChecks
-                )
+                ViewerImageDecoder.decode(strictChecks = strictImageDecodeChecks) {
+                    reader.openEntryStream(entry)
+                }
             }
         }
 

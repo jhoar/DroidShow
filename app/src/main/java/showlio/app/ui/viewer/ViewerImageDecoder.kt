@@ -11,7 +11,7 @@ internal object ViewerImageDecoder {
     private const val MAX_TOTAL_PIXELS = 40_000_000L
     private const val MAX_BITMAP_BYTES = 32L * 1024L * 1024L
 
-    fun decode(streamProvider: () -> InputStream, strictChecks: Boolean = false): Bitmap {
+    fun decode(strictChecks: Boolean = false, streamProvider: () -> InputStream): Bitmap {
         if (!strictChecks) {
             return decodeBitmap(streamProvider)
         }
