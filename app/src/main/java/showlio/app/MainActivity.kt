@@ -17,6 +17,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.updatePadding
 import showlio.app.databinding.ActivityMainBinding
 import showlio.app.databinding.DialogSettingsBinding
 import showlio.app.ui.viewer.ViewerViewModel
@@ -57,6 +59,25 @@ class MainActivity : AppCompatActivity() {
     private fun initializeBinding() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applySafeTopInset()
+    }
+
+    private fun applySafeTopInset() {
+        val rootView = binding.root
+        val basePaddingTop = rootView.paddingTop
+
+        ViewCompat.setOnApplyWindowInsetsListener(rootView) { view, insets ->
+            val systemBarTopInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top
+            val cutoutTopInset = insets.displayCutout?.safeInsetTop ?: 0
+            val topInset = MainActivityInsetsPolicy.safeTopInset(
+                systemBarTopInset = systemBarTopInset,
+                cutoutTopInset = cutoutTopInset
+            )
+            view.updatePadding(top = basePaddingTop + topInset)
+            insets
+        }
+
+        ViewCompat.requestApplyInsets(rootView)
     }
 
     private fun bindClickListeners() {
