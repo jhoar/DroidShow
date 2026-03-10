@@ -32,7 +32,9 @@ class ViewerViewModel(
     private var imageEntries: List<ArchiveEntryRef> = emptyList()
     private var slideshowJob: Job? = null
     private var loadingUri: Uri? = null
-    private var displayOrder: MutableList<Int> = mutableListOf()
+    private var randomOrder: IntArray = IntArray(0)
+    private var positionByImageIndex: IntArray = IntArray(0)
+    private var currentOrderPosition: Int = -1
     private var activeReaderUri: Uri? = null
     private var activeReader: ArchiveReader? = null
 
@@ -84,10 +86,10 @@ class ViewerViewModel(
     fun setDisplayMode(displayMode: ViewerUiState.DisplayMode) {
         if (_uiState.value.displayMode == displayMode) return
 
-        val currentEntry = imageEntries.getOrNull(_uiState.value.currentIndex)
+        val currentIndex = _uiState.value.currentIndex
         _uiState.value = _uiState.value.copy(displayMode = displayMode)
         savedStateHandle[KEY_DISPLAY_MODE] = displayMode.name
-        rebuildDisplayOrder(currentEntry)
+        rebuildDisplayOrder(currentIndex)
         restartSlideshowLoopIfNeeded()
     }
 
@@ -124,8 +126,7 @@ class ViewerViewModel(
                     index = savedStateHandle[KEY_CURRENT_INDEX] ?: 0,
                     lastIndex = entries.lastIndex
                 )
-                val restoredEntry = entries[restoredIndex]
-                rebuildDisplayOrder(restoredEntry)
+                rebuildDisplayOrder(restoredIndex)
                 showEntry(restoredIndex)
                 restartSlideshowLoopIfNeeded()
             }.onFailure { throwable ->
@@ -251,57 +252,63 @@ class ViewerViewModel(
 
     private fun nextRandomIndex(currentIndex: Int): Int {
         ensureRandomDisplayOrder(currentIndex)
-        val currentOrderPosition = currentRandomOrderPosition(currentIndex)
         val nextOrderPosition = nextRandomOrderPosition(currentOrderPosition, currentIndex)
+        currentOrderPosition = nextOrderPosition
         return resolveRandomImageIndex(nextOrderPosition, currentIndex)
     }
 
     private fun ensureRandomDisplayOrder(currentIndex: Int) {
         if (!isRandomDisplayOrderValid()) {
-            rebuildDisplayOrder(imageEntries.getOrNull(currentIndex))
+            rebuildDisplayOrder(currentIndex)
         }
     }
 
     private fun isRandomDisplayOrderValid(): Boolean {
         if (_uiState.value.displayMode != ViewerUiState.DisplayMode.RANDOM) return false
-        return ViewerIndexSelector.isRandomDisplayOrderValid(displayOrder, imageEntries.size)
+        return ViewerIndexSelector.isRandomDisplayOrderValid(
+            order = randomOrder,
+            positionByImageIndex = positionByImageIndex,
+            totalCount = imageEntries.size,
+            currentOrderPosition = currentOrderPosition
+        )
     }
 
-    private fun currentRandomOrderPosition(currentIndex: Int): Int =
-        ViewerIndexSelector.currentRandomOrderPosition(displayOrder, currentIndex)
 
     private fun nextRandomOrderPosition(currentOrderPosition: Int, currentIndex: Int): Int {
-        if (ViewerIndexSelector.shouldRebuildRandomOrder(currentOrderPosition, displayOrder.lastIndex)) {
-            rebuildDisplayOrder(imageEntries.getOrNull(currentIndex))
-            return 1
+        if (ViewerIndexSelector.shouldRebuildRandomOrder(currentOrderPosition, randomOrder.lastIndex)) {
+            rebuildDisplayOrder(currentIndex)
+            return ViewerIndexSelector.nextRandomOrderPosition(this.currentOrderPosition)
         }
 
         return ViewerIndexSelector.nextRandomOrderPosition(currentOrderPosition)
     }
 
     private fun resolveRandomImageIndex(nextOrderPosition: Int, currentIndex: Int): Int =
-        ViewerIndexSelector.resolveRandomImageIndex(displayOrder, nextOrderPosition, currentIndex)
+        ViewerIndexSelector.resolveRandomImageIndex(randomOrder, nextOrderPosition, currentIndex)
 
-    private fun rebuildDisplayOrder(currentEntry: ArchiveEntryRef?) {
+    private fun rebuildDisplayOrder(currentIndex: Int) {
         if (imageEntries.isEmpty()) {
-            displayOrder = mutableListOf()
+            randomOrder = IntArray(0)
+            positionByImageIndex = IntArray(0)
+            currentOrderPosition = -1
             return
         }
 
-        val order = imageEntries.indices.toMutableList()
         if (_uiState.value.displayMode == ViewerUiState.DisplayMode.RANDOM) {
-            order.shuffle(Random.Default)
-            val currentIndex = currentEntry?.let { imageEntries.indexOf(it) } ?: -1
-            if (currentIndex >= 0) {
-                val foundPosition = order.indexOf(currentIndex)
-                if (foundPosition > 0) {
-                    order.removeAt(foundPosition)
-                    order.add(0, currentIndex)
-                }
-            }
+            val randomTraversalState = ViewerIndexSelector.rebuildRandomTraversalState(
+                totalCount = imageEntries.size,
+                currentIndex = currentIndex,
+                randomInt = { bound -> Random.Default.nextInt(bound) }
+            )
+            randomOrder = randomTraversalState.order
+            positionByImageIndex = randomTraversalState.positionByImageIndex
+            currentOrderPosition = randomTraversalState.currentOrderPosition
+            return
         }
 
-        displayOrder = order
+        randomOrder = IntArray(imageEntries.size) { it }
+        positionByImageIndex = IntArray(imageEntries.size) { it }
+        currentOrderPosition = currentIndex.coerceIn(0, imageEntries.lastIndex)
     }
 
     private fun stopSlideshowLoop() {
