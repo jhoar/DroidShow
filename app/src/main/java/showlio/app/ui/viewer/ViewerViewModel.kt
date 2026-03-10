@@ -1,8 +1,10 @@
 package showlio.app.ui.viewer
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.LruCache
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -13,6 +15,7 @@ import showlio.app.archive.ArchiveReaderFactory
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +40,18 @@ class ViewerViewModel(
     private var currentOrderPosition: Int = -1
     private var activeReaderUri: Uri? = null
     private var activeReader: ArchiveReader? = null
+    private val cacheLock = Any()
+    private val bitmapCache = object : LruCache<String, Bitmap>(BITMAP_CACHE_MAX_SIZE_KB) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount / 1024
+
+        override fun entryRemoved(evicted: Boolean, key: String, oldValue: Bitmap, newValue: Bitmap?) {
+            if (!evicted || oldValue === newValue) return
+            val currentBitmap = _uiState.value.bitmap
+            if (oldValue !== currentBitmap && !oldValue.isRecycled) {
+                oldValue.recycle()
+            }
+        }
+    }
 
     init {
         restoreSavedState()
@@ -94,6 +109,7 @@ class ViewerViewModel(
     }
 
     private fun loadArchive(uri: Uri, resetPosition: Boolean) {
+        clearBitmapCache()
         loadingUri = uri
         updateLoadingState(uri)
 
@@ -156,6 +172,7 @@ class ViewerViewModel(
     }
 
     private fun clearContentWithError(message: String, stopPlayback: Boolean = true) {
+        clearBitmapCache()
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             isPlaying = if (stopPlayback) false else _uiState.value.isPlaying,
@@ -181,20 +198,10 @@ class ViewerViewModel(
 
         val entry = imageEntries[index]
         val bitmap = withContext(Dispatchers.IO) {
-            val reader = ensureActiveReader(entry.archiveUri)
-            reader.openEntryStream(entry).use { stream ->
-                BitmapFactory.decodeStream(stream)
-            }
+            decodeBitmapForEntry(entry)
         }
 
-        _uiState.value = _uiState.value.copy(
-            isLoading = false,
-            currentIndex = index,
-            totalCount = imageEntries.size,
-            bitmap = bitmap,
-            errorMessage = null
-        )
-        savedStateHandle[KEY_CURRENT_INDEX] = index
+        updateUiStateForEntry(index = index, bitmap = bitmap)
     }
 
     private suspend fun ensureActiveReader(uri: Uri): ArchiveReader {
@@ -218,6 +225,7 @@ class ViewerViewModel(
 
     override fun onCleared() {
         stopSlideshowLoop()
+        clearBitmapCache()
         closeActiveReader()
         super.onCleared()
     }
@@ -232,8 +240,12 @@ class ViewerViewModel(
             while (_uiState.value.isPlaying && imageEntries.isNotEmpty()) {
                 val intervalMs = _uiState.value.slideshowIntervalMs
                 val nextIndex = nextIndexForMode(_uiState.value.currentIndex)
-                showEntry(nextIndex)
+                val prefetchJob = async(Dispatchers.IO) {
+                    decodeBitmapForEntry(imageEntries[nextIndex])
+                }
                 delay(intervalMs)
+                val bitmap = prefetchJob.await()
+                updateUiStateForEntry(index = nextIndex, bitmap = bitmap)
             }
         }
     }
@@ -313,6 +325,110 @@ class ViewerViewModel(
         slideshowJob = null
     }
 
+    private suspend fun updateUiStateForEntry(index: Int, bitmap: Bitmap?) {
+        withContext(Dispatchers.Main.immediate) {
+            val previousBitmap = _uiState.value.bitmap
+            _uiState.value = _uiState.value.copy(
+                isLoading = false,
+                currentIndex = index,
+                totalCount = imageEntries.size,
+                bitmap = bitmap,
+                errorMessage = null
+            )
+            savedStateHandle[KEY_CURRENT_INDEX] = index
+            recycleBitmapIfStale(previousBitmap, replacement = bitmap)
+        }
+    }
+
+    private suspend fun decodeBitmapForEntry(entry: ArchiveEntryRef): Bitmap? {
+        getBitmapFromCache(entry)?.let { return it }
+
+        val reader = ensureActiveReader(entry.archiveUri)
+        val metrics = getApplication<Application>().resources.displayMetrics
+        val targetWidth = metrics.widthPixels.coerceAtLeast(1)
+        val targetHeight = metrics.heightPixels.coerceAtLeast(1)
+        val bitmap = decodeSampledBitmap(reader, entry, targetWidth, targetHeight)
+        if (bitmap != null) {
+            putBitmapInCache(entry, bitmap)
+        }
+        return bitmap
+    }
+
+    private fun decodeSampledBitmap(
+        reader: ArchiveReader,
+        entry: ArchiveEntryRef,
+        targetWidth: Int,
+        targetHeight: Int
+    ): Bitmap? {
+        val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        reader.openEntryStream(entry).use { boundsStream ->
+            BitmapFactory.decodeStream(boundsStream, null, boundsOptions)
+        }
+
+        if (boundsOptions.outWidth <= 0 || boundsOptions.outHeight <= 0) {
+            return null
+        }
+
+        val decodeOptions = BitmapFactory.Options().apply {
+            inSampleSize = calculateInSampleSize(
+                sourceWidth = boundsOptions.outWidth,
+                sourceHeight = boundsOptions.outHeight,
+                targetWidth = targetWidth,
+                targetHeight = targetHeight
+            )
+        }
+
+        return reader.openEntryStream(entry).use { decodeStream ->
+            BitmapFactory.decodeStream(decodeStream, null, decodeOptions)
+        }
+    }
+
+    private fun calculateInSampleSize(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        targetWidth: Int,
+        targetHeight: Int
+    ): Int {
+        var sampleSize = 1
+        if (sourceHeight > targetHeight || sourceWidth > targetWidth) {
+            val halfHeight = sourceHeight / 2
+            val halfWidth = sourceWidth / 2
+            while (halfHeight / sampleSize >= targetHeight && halfWidth / sampleSize >= targetWidth) {
+                sampleSize *= 2
+            }
+        }
+        return sampleSize.coerceAtLeast(1)
+    }
+
+    private fun clearBitmapCache() {
+        synchronized(cacheLock) {
+            bitmapCache.evictAll()
+        }
+    }
+
+    private fun getBitmapFromCache(entry: ArchiveEntryRef): Bitmap? = synchronized(cacheLock) {
+        bitmapCache.get(cacheKey(entry))
+    }
+
+    private fun putBitmapInCache(entry: ArchiveEntryRef, bitmap: Bitmap) {
+        synchronized(cacheLock) {
+            bitmapCache.put(cacheKey(entry), bitmap)
+        }
+    }
+
+    private fun recycleBitmapIfStale(previous: Bitmap?, replacement: Bitmap?) {
+        if (previous == null || previous === replacement || previous.isRecycled) return
+        val stillCached = synchronized(cacheLock) {
+            bitmapCache.snapshot().values.any { it === previous }
+        }
+        if (!stillCached) {
+            previous.recycle()
+        }
+    }
+
+    private fun cacheKey(entry: ArchiveEntryRef): String =
+        "${entry.archiveUri}|${entry.entryPath}|${entry.index}"
+
     private fun restoreSavedState() {
         val uriString = savedStateHandle.get<String>(KEY_ARCHIVE_URI)
         val isPlaying = savedStateHandle.get<Boolean>(KEY_IS_PLAYING) ?: false
@@ -346,6 +462,7 @@ class ViewerViewModel(
         const val MIN_INTERVAL_SECONDS = 1
         const val MAX_INTERVAL_SECONDS = 30
         private const val DEFAULT_SLIDESHOW_INTERVAL_MS = 3_000L
+        private const val BITMAP_CACHE_MAX_SIZE_KB = 16 * 1024
         private const val KEY_ARCHIVE_URI = "archive_uri"
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_IS_PLAYING = "is_playing"
