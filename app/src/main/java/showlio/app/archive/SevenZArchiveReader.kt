@@ -15,38 +15,45 @@ class SevenZArchiveReader(
     private val archiveFile = ArchiveTempCache(context.applicationContext).getOrCreate(archiveUri, ".7z")
 
     private data class SevenZEntryMetadata(
-        val ref: ArchiveEntryRef,
-        val entry: SevenZArchiveEntry
+        val path: String,
+        val index: Int,
+        val uncompressedSize: Long
     )
 
-    private var sevenZFile: SevenZFile? = null
-    private var isClosed = false
-
-    private val indexedEntries by lazy {
+    private val metadataEntries by lazy {
         val discovered = mutableListOf<SevenZEntryMetadata>()
-        val reader = requireSevenZFile()
-        var index = 0
-        var entry = reader.nextEntry
-        while (entry != null) {
-            if (entry.isImageFile()) {
-                discovered += SevenZEntryMetadata(
-                    ref = entry.toRef(index),
-                    entry = entry
-                )
+        SevenZFile.builder().setFile(archiveFile).get().use { reader ->
+            var index = 0
+            var entry = reader.nextEntry
+            while (entry != null) {
+                if (entry.isImageFile()) {
+                    discovered += SevenZEntryMetadata(
+                        path = entry.requireName(),
+                        index = index,
+                        uncompressedSize = entry.size
+                    )
+                }
+                index++
+                entry = reader.nextEntry
             }
-            index++
-            entry = reader.nextEntry
         }
         discovered
     }
 
-    private val metadataByIndexAndPath by lazy {
-        indexedEntries.associateBy { it.ref.index to it.ref.entryPath }
-    }
+    private var isClosed = false
+    private var metadataByIndexAndPath: Map<Pair<Int, String>, SevenZEntryMetadata>? = null
 
     private val imageEntries by lazy {
-        indexedEntries
-            .map { it.ref }
+        metadataEntries
+            .map {
+                ArchiveEntryRef(
+                    archiveUri = archiveUri,
+                    entryPath = it.path,
+                    compressedSize = -1L,
+                    uncompressedSize = it.uncompressedSize,
+                    index = it.index
+                )
+            }
             .sortedWith(compareBy(ArchiveEntrySupport.naturalPathComparator) { it.entryPath })
     }
 
@@ -59,44 +66,71 @@ class SevenZArchiveReader(
 
         check(!isClosed) { "Archive reader has been closed." }
 
-        val metadata = metadataByIndexAndPath[entry.index to entry.entryPath]
+        val key = entry.index to entry.entryPath
+        val metadata = requireMetadataByIndexAndPath()[key]
             ?: throw IllegalArgumentException("7z entry not found: ${entry.entryPath}")
+        val archive = SevenZFile.builder()
+            .setFile(archiveFile)
+            .get()
+        val sevenZEntry = archive.readEntryAtIndex(metadata.index)
+            ?: run {
+                archive.close()
+                throw IllegalArgumentException("7z entry index out of range: ${metadata.index}")
+            }
 
-        return requireSevenZFile().getInputStream(metadata.entry)
+        if (sevenZEntry.name != metadata.path) {
+            archive.close()
+            throw IllegalArgumentException("7z entry mismatch for index ${metadata.index}")
+        }
+
+        val stream = archive.getInputStream(sevenZEntry)
+        return object : InputStream() {
+            override fun read(): Int = stream.read()
+
+            override fun read(b: ByteArray, off: Int, len: Int): Int = stream.read(b, off, len)
+
+            override fun close() {
+                try {
+                    stream.close()
+                } finally {
+                    archive.close()
+                }
+            }
+        }
     }
 
     override fun close() {
         isClosed = true
-        sevenZFile?.close()
-        sevenZFile = null
+        metadataByIndexAndPath = null
     }
 
-    @Synchronized
-    private fun requireSevenZFile(): SevenZFile {
-        check(!isClosed) { "Archive reader has been closed." }
-
-        val existing = sevenZFile
+    private fun requireMetadataByIndexAndPath(): Map<Pair<Int, String>, SevenZEntryMetadata> {
+        val existing = metadataByIndexAndPath
         if (existing != null) {
             return existing
         }
 
-        return SevenZFile.builder()
-            .setFile(archiveFile)
-            .get()
-            .also { sevenZFile = it }
+        return metadataEntries
+            .associateBy { it.index to it.path }
+            .also { metadataByIndexAndPath = it }
     }
 
     private fun SevenZArchiveEntry.isImageFile(): Boolean =
         !isDirectory && ArchiveEntrySupport.isImageEntry(name ?: "")
 
-    private fun SevenZArchiveEntry.toRef(index: Int): ArchiveEntryRef {
-        val name = name ?: throw IOException("Encountered 7z entry without a name.")
-        return ArchiveEntryRef(
-            archiveUri = archiveUri,
-            entryPath = name,
-            compressedSize = -1L,
-            uncompressedSize = size,
-            index = index
-        )
+    private fun SevenZArchiveEntry.requireName(): String =
+        name ?: throw IOException("Encountered 7z entry without a name.")
+
+    private fun SevenZFile.readEntryAtIndex(targetIndex: Int): SevenZArchiveEntry? {
+        var index = 0
+        var entry = nextEntry
+        while (entry != null) {
+            if (index == targetIndex) {
+                return entry
+            }
+            index++
+            entry = nextEntry
+        }
+        return null
     }
 }

@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry
 import org.apache.commons.compress.archivers.sevenz.SevenZOutputFile
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,6 +71,77 @@ class ArchiveReaderRandomAccessTest {
 
         reader.close()
         reader.openEntryStream(entry)
+    }
+
+    @Test
+    fun `archive readers defer heavy lookup structures until open request`() {
+        val imagePayloads = (0 until 1200).associate { index ->
+            "images/%04d.png".format(index) to "payload-$index".encodeToByteArray()
+        }
+        val zipFile = createZipArchive(imagePayloads + ("docs/readme.txt" to "ignore".encodeToByteArray()))
+        val sevenZFile = createSevenZArchive(imagePayloads + ("docs/readme.txt" to "ignore".encodeToByteArray()))
+
+        ZipArchiveReader(context, Uri.fromFile(zipFile)).use { reader ->
+            val listed = reader.listImageEntries()
+            assertEquals(1200, listed.size)
+            assertNull(privateField(reader, "zipEntriesByOffset"))
+            assertNull(privateField(reader, "metadataByIndexAndPath"))
+
+            val sample = listed.shuffled(Random(100)).take(25)
+            sample.forEach { ref ->
+                val bytes = reader.openEntryStream(ref).use { it.readBytes() }
+                assertTrue(bytes.contentEquals(imagePayloads.getValue(ref.entryPath)))
+            }
+
+            val zipLookup = privateField(reader, "zipEntriesByOffset") as Map<*, *>
+            val zipMetadataLookup = privateField(reader, "metadataByIndexAndPath") as Map<*, *>
+            assertEquals(1201, zipLookup.size)
+            assertEquals(1200, zipMetadataLookup.size)
+        }
+
+        SevenZArchiveReader(context, Uri.fromFile(sevenZFile)).use { reader ->
+            val listed = reader.listImageEntries()
+            assertEquals(1200, listed.size)
+            assertNull(privateField(reader, "metadataByIndexAndPath"))
+
+            val sample = listed.shuffled(Random(101)).take(25)
+            sample.forEach { ref ->
+                val bytes = reader.openEntryStream(ref).use { it.readBytes() }
+                assertTrue(bytes.contentEquals(imagePayloads.getValue(ref.entryPath)))
+            }
+
+            val sevenZMetadataLookup = privateField(reader, "metadataByIndexAndPath") as Map<*, *>
+            assertEquals(1200, sevenZMetadataLookup.size)
+        }
+    }
+
+    @Test
+    fun `7z reader supports switching from random opens to sequential opens`() {
+        val imagePayloads = (0 until 64).associate { index ->
+            "images/%03d.png".format(index) to "payload-$index".encodeToByteArray()
+        }
+        val sevenZFile = createSevenZArchive(imagePayloads)
+
+        SevenZArchiveReader(context, Uri.fromFile(sevenZFile)).use { reader ->
+            val listed = reader.listImageEntries()
+            listed.shuffled(Random(55)).take(16).forEach { ref ->
+                val bytes = reader.openEntryStream(ref).use { it.readBytes() }
+                assertTrue(bytes.contentEquals(imagePayloads.getValue(ref.entryPath)))
+            }
+
+            val listedAgain = reader.listImageEntries()
+            assertEquals(listed.map { it.entryPath }, listedAgain.map { it.entryPath })
+            listedAgain.forEach { ref ->
+                val bytes = reader.openEntryStream(ref).use { it.readBytes() }
+                assertTrue(bytes.contentEquals(imagePayloads.getValue(ref.entryPath)))
+            }
+        }
+    }
+
+    private fun privateField(target: Any, name: String): Any? {
+        val field = target.javaClass.getDeclaredField(name)
+        field.isAccessible = true
+        return field.get(target)
     }
 
     private fun createZipArchive(entries: Map<String, ByteArray>): File {
