@@ -117,9 +117,11 @@ class ViewerViewModel(
 
         loadJob = viewModelScope.launch {
             val result = runCatching {
-                listImageEntriesOverride?.invoke(uri) ?: withContext(Dispatchers.IO) {
-                    val reader = ensureActiveReader(uri)
-                    reader.listImageEntries()
+                withContext(Dispatchers.IO) {
+                    listImageEntriesOverride?.invoke(uri) ?: run {
+                        val reader = ensureActiveReader(uri)
+                        reader.listImageEntries()
+                    }
                 }
             }
 
@@ -205,10 +207,12 @@ class ViewerViewModel(
         }
 
         val entry = imageEntries[index]
-        val bitmap = decodeEntryBitmapOverride?.invoke(entry) ?: withContext(Dispatchers.IO) {
-            val reader = ensureActiveReader(entry.archiveUri)
-            reader.openEntryStream(entry).use { stream ->
-                BitmapFactory.decodeStream(stream)
+        val bitmap = withContext(Dispatchers.IO) {
+            decodeEntryBitmapOverride?.invoke(entry) ?: run {
+                val reader = ensureActiveReader(entry.archiveUri)
+                reader.openEntryStream(entry).use { stream ->
+                    BitmapFactory.decodeStream(stream)
+                }
             }
         }
 
