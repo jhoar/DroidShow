@@ -10,27 +10,6 @@ internal object ViewerIndexSelector {
 
     fun nextSequentialIndex(currentIndex: Int, totalCount: Int): Int = (currentIndex + 1) % totalCount
 
-    fun isRandomDisplayOrderValid(
-        order: IntArray,
-        positionByImageIndex: IntArray,
-        totalCount: Int,
-        currentOrderPosition: Int
-    ): Boolean {
-        if (order.size != totalCount || positionByImageIndex.size != totalCount) return false
-        if (totalCount == 0) return currentOrderPosition == -1
-        if (currentOrderPosition !in 0 until totalCount) return false
-
-        val seen = BooleanArray(totalCount)
-        for (position in order.indices) {
-            val imageIndex = order[position]
-            if (imageIndex !in 0 until totalCount || seen[imageIndex]) return false
-            seen[imageIndex] = true
-            if (positionByImageIndex[imageIndex] != position) return false
-        }
-
-        return true
-    }
-
     fun rebuildRandomTraversalState(
         totalCount: Int,
         currentIndex: Int,
@@ -62,17 +41,17 @@ internal object ViewerIndexSelector {
             positionByImageIndex[order[position]] = position
         }
 
-        val currentOrderPosition = if (safeCurrentIndex >= 0) {
-            positionByImageIndex[safeCurrentIndex]
-        } else {
-            0
-        }
-
-        return RandomTraversalState(
+        val traversalState = RandomTraversalState(
             order = order,
             positionByImageIndex = positionByImageIndex,
-            currentOrderPosition = currentOrderPosition
+            currentOrderPosition = if (safeCurrentIndex >= 0) positionByImageIndex[safeCurrentIndex] else 0
         )
+
+        check(isRandomTraversalStateValid(traversalState, totalCount)) {
+            "Generated invalid random traversal state"
+        }
+
+        return traversalState
     }
 
     fun shouldRebuildRandomOrder(currentOrderPosition: Int, lastOrderPosition: Int): Boolean =
@@ -82,4 +61,26 @@ internal object ViewerIndexSelector {
 
     fun resolveRandomImageIndex(order: IntArray, nextOrderPosition: Int, currentIndex: Int): Int =
         order.getOrElse(nextOrderPosition) { currentIndex }
+
+    private fun isRandomTraversalStateValid(
+        traversalState: RandomTraversalState,
+        totalCount: Int
+    ): Boolean {
+        val order = traversalState.order
+        val positionByImageIndex = traversalState.positionByImageIndex
+
+        if (order.size != totalCount || positionByImageIndex.size != totalCount) return false
+        if (totalCount == 0) return traversalState.currentOrderPosition == -1
+        if (traversalState.currentOrderPosition !in 0 until totalCount) return false
+
+        val seen = BooleanArray(totalCount)
+        for (position in order.indices) {
+            val imageIndex = order[position]
+            if (imageIndex !in 0 until totalCount || seen[imageIndex]) return false
+            seen[imageIndex] = true
+            if (positionByImageIndex[imageIndex] != position) return false
+        }
+
+        return true
+    }
 }
