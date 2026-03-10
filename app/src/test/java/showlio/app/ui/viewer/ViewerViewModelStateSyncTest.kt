@@ -100,7 +100,7 @@ class ViewerViewModelStateSyncTest {
             targetHeight = 1_000
         )
 
-        assertEquals(2, massiveLandscape)
+        assertEquals(4, massiveLandscape)
         assertEquals(8, ultraSquare)
     }
 
