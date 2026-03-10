@@ -112,7 +112,14 @@ class ViewerViewModelStateSyncTest {
         viewModel.loadArchiveIfNeeded(firstUri)
         viewModel.loadArchiveIfNeeded(secondUri)
 
-        waitUntil(timeoutMs = 2_000) { !viewModel.uiState.value.isLoading }
+        waitUntil(
+            timeoutMs = 2_000,
+            condition = {
+                val state = viewModel.uiState.value
+                state.archiveUri == secondUri && state.totalCount == 1 && !state.isLoading
+            },
+            onTimeout = { viewModel.uiStateSnapshot() }
+        )
 
         assertEquals(secondUri, viewModel.uiState.value.archiveUri)
         assertEquals(1, viewModel.uiState.value.totalCount)
@@ -122,11 +129,16 @@ class ViewerViewModelStateSyncTest {
     }
 
 
-    private fun waitUntil(timeoutMs: Long, condition: () -> Boolean) {
+    private fun ViewerViewModel.uiStateSnapshot(): String {
+        val state = uiState.value
+        return "archiveUri=${state.archiveUri}, isLoading=${state.isLoading}, totalCount=${state.totalCount}, currentIndex=${state.currentIndex}"
+    }
+
+    private fun waitUntil(timeoutMs: Long, condition: () -> Boolean, onTimeout: () -> String) {
         val start = System.currentTimeMillis()
         while (!condition()) {
             if (System.currentTimeMillis() - start > timeoutMs) {
-                throw AssertionError("Condition was not met within ${timeoutMs}ms")
+                throw AssertionError("Condition was not met within ${timeoutMs}ms; state=${onTimeout()}")
             }
             Thread.sleep(10)
         }

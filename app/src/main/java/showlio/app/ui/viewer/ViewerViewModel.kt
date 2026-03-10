@@ -4,6 +4,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -27,7 +28,10 @@ class ViewerViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
+    @VisibleForTesting
     internal var listImageEntriesOverride: (suspend (Uri) -> List<ArchiveEntryRef>)? = null
+
+    @VisibleForTesting
     internal var decodeEntryBitmapOverride: (suspend (ArchiveEntryRef) -> Bitmap?)? = null
 
     private val _uiState = MutableStateFlow(ViewerUiState())
