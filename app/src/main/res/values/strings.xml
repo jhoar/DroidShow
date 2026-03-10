@@ -20,7 +20,7 @@
     <string name="error_no_images">No images were found in this archive.</string>
     <string name="error_unsupported_archive">Unsupported archive format.</string>
     <string name="error_corrupt_archive">Archive appears to be corrupt.</string>
-    <string name="error_unsupported_rar">RAR format version 5 not supported by this app.</string>
+    <string name="error_unsupported_rar">This RAR archive uses an unsupported version (v5) or feature</string>
     <string name="error_storage_permission_required">Storage permission is required to open this file location.</string>
     <string name="error_open_archive">Unable to open archive.</string>
 </resources>
