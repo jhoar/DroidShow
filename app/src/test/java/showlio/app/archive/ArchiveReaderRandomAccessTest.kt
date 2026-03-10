@@ -102,7 +102,6 @@ class ArchiveReaderRandomAccessTest {
         SevenZArchiveReader(context, Uri.fromFile(sevenZFile)).use { reader ->
             val listed = reader.listImageEntries()
             assertEquals(1200, listed.size)
-            assertNull(privateField(reader, "sevenZEntriesByIndexAndPath"))
             assertNull(privateField(reader, "metadataByIndexAndPath"))
 
             val sample = listed.shuffled(Random(101)).take(25)
@@ -111,10 +110,31 @@ class ArchiveReaderRandomAccessTest {
                 assertTrue(bytes.contentEquals(imagePayloads.getValue(ref.entryPath)))
             }
 
-            val sevenZLookup = privateField(reader, "sevenZEntriesByIndexAndPath") as Map<*, *>
             val sevenZMetadataLookup = privateField(reader, "metadataByIndexAndPath") as Map<*, *>
-            assertEquals(1200, sevenZLookup.size)
             assertEquals(1200, sevenZMetadataLookup.size)
+        }
+    }
+
+    @Test
+    fun `7z reader supports switching from random opens to sequential opens`() {
+        val imagePayloads = (0 until 64).associate { index ->
+            "images/%03d.png".format(index) to "payload-$index".encodeToByteArray()
+        }
+        val sevenZFile = createSevenZArchive(imagePayloads)
+
+        SevenZArchiveReader(context, Uri.fromFile(sevenZFile)).use { reader ->
+            val listed = reader.listImageEntries()
+            listed.shuffled(Random(55)).take(16).forEach { ref ->
+                val bytes = reader.openEntryStream(ref).use { it.readBytes() }
+                assertTrue(bytes.contentEquals(imagePayloads.getValue(ref.entryPath)))
+            }
+
+            val listedAgain = reader.listImageEntries()
+            assertEquals(listed.map { it.entryPath }, listedAgain.map { it.entryPath })
+            listedAgain.forEach { ref ->
+                val bytes = reader.openEntryStream(ref).use { it.readBytes() }
+                assertTrue(bytes.contentEquals(imagePayloads.getValue(ref.entryPath)))
+            }
         }
     }
 

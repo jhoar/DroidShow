@@ -40,10 +40,8 @@ class SevenZArchiveReader(
         discovered
     }
 
-    private var sevenZFile: SevenZFile? = null
     private var isClosed = false
     private var metadataByIndexAndPath: Map<Pair<Int, String>, SevenZEntryMetadata>? = null
-    private var sevenZEntriesByIndexAndPath: Map<Pair<Int, String>, SevenZArchiveEntry>? = null
 
     private val imageEntries by lazy {
         metadataEntries
@@ -71,33 +69,39 @@ class SevenZArchiveReader(
         val key = entry.index to entry.entryPath
         val metadata = requireMetadataByIndexAndPath()[key]
             ?: throw IllegalArgumentException("7z entry not found: ${entry.entryPath}")
-        val sevenZEntry = requireSevenZEntriesByIndexAndPath()[metadata.index to metadata.path]
-            ?: throw IllegalArgumentException("7z entry lookup missing: ${entry.entryPath}")
+        val archive = SevenZFile.builder()
+            .setFile(archiveFile)
+            .get()
+        val sevenZEntry = archive.readEntryAtIndex(metadata.index)
+            ?: run {
+                archive.close()
+                throw IllegalArgumentException("7z entry index out of range: ${metadata.index}")
+            }
 
-        return requireSevenZFile().getInputStream(sevenZEntry)
+        if (sevenZEntry.name != metadata.path) {
+            archive.close()
+            throw IllegalArgumentException("7z entry mismatch for index ${metadata.index}")
+        }
+
+        val stream = archive.getInputStream(sevenZEntry)
+        return object : InputStream() {
+            override fun read(): Int = stream.read()
+
+            override fun read(b: ByteArray, off: Int, len: Int): Int = stream.read(b, off, len)
+
+            override fun close() {
+                try {
+                    stream.close()
+                } finally {
+                    archive.close()
+                }
+            }
+        }
     }
 
     override fun close() {
         isClosed = true
-        sevenZFile?.close()
-        sevenZFile = null
         metadataByIndexAndPath = null
-        sevenZEntriesByIndexAndPath = null
-    }
-
-    @Synchronized
-    private fun requireSevenZFile(): SevenZFile {
-        check(!isClosed) { "Archive reader has been closed." }
-
-        val existing = sevenZFile
-        if (existing != null) {
-            return existing
-        }
-
-        return SevenZFile.builder()
-            .setFile(archiveFile)
-            .get()
-            .also { sevenZFile = it }
     }
 
     private fun requireMetadataByIndexAndPath(): Map<Pair<Int, String>, SevenZEntryMetadata> {
@@ -111,31 +115,22 @@ class SevenZArchiveReader(
             .also { metadataByIndexAndPath = it }
     }
 
-    private fun requireSevenZEntriesByIndexAndPath(): Map<Pair<Int, String>, SevenZArchiveEntry> {
-        val existing = sevenZEntriesByIndexAndPath
-        if (existing != null) {
-            return existing
-        }
-
-        val entries = mutableMapOf<Pair<Int, String>, SevenZArchiveEntry>()
-        val reader = requireSevenZFile()
-        var index = 0
-        var entry = reader.nextEntry
-        while (entry != null) {
-            val name = entry.name
-            if (!entry.isDirectory && name != null && ArchiveEntrySupport.isImageEntry(name)) {
-                entries[index to name] = entry
-            }
-            index++
-            entry = reader.nextEntry
-        }
-
-        return entries.also { sevenZEntriesByIndexAndPath = it }
-    }
-
     private fun SevenZArchiveEntry.isImageFile(): Boolean =
         !isDirectory && ArchiveEntrySupport.isImageEntry(name ?: "")
 
     private fun SevenZArchiveEntry.requireName(): String =
         name ?: throw IOException("Encountered 7z entry without a name.")
+
+    private fun SevenZFile.readEntryAtIndex(targetIndex: Int): SevenZArchiveEntry? {
+        var index = 0
+        var entry = nextEntry
+        while (entry != null) {
+            if (index == targetIndex) {
+                return entry
+            }
+            index++
+            entry = nextEntry
+        }
+        return null
+    }
 }
