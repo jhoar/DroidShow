@@ -15,34 +15,6 @@ class ViewerIndexSelectorTest {
     }
 
     @Test
-    fun isRandomDisplayOrderValid_requiresFullPermutationWithInverseMap() {
-        assertTrue(
-            ViewerIndexSelector.isRandomDisplayOrderValid(
-                order = intArrayOf(2, 0, 1),
-                positionByImageIndex = intArrayOf(1, 2, 0),
-                totalCount = 3,
-                currentOrderPosition = 1
-            )
-        )
-        assertFalse(
-            ViewerIndexSelector.isRandomDisplayOrderValid(
-                order = intArrayOf(0, 1),
-                positionByImageIndex = intArrayOf(0, 1),
-                totalCount = 3,
-                currentOrderPosition = 0
-            )
-        )
-        assertFalse(
-            ViewerIndexSelector.isRandomDisplayOrderValid(
-                order = intArrayOf(0, 0, 1),
-                positionByImageIndex = intArrayOf(0, 1, 2),
-                totalCount = 3,
-                currentOrderPosition = 0
-            )
-        )
-    }
-
-    @Test
     fun shouldRebuildRandomOrder_whenCurrentMissingOrAtEnd() {
         assertTrue(ViewerIndexSelector.shouldRebuildRandomOrder(currentOrderPosition = -1, lastOrderPosition = 2))
         assertTrue(ViewerIndexSelector.shouldRebuildRandomOrder(currentOrderPosition = 2, lastOrderPosition = 2))
@@ -72,14 +44,32 @@ class ViewerIndexSelectorTest {
         assertEquals(4, traversalState.order[0])
         assertEquals(0, traversalState.positionByImageIndex[4])
         assertEquals(0, traversalState.currentOrderPosition)
-        assertTrue(
-            ViewerIndexSelector.isRandomDisplayOrderValid(
-                order = traversalState.order,
-                positionByImageIndex = traversalState.positionByImageIndex,
-                totalCount = 6,
-                currentOrderPosition = traversalState.currentOrderPosition
-            )
+        assertValidTraversalState(traversalState, totalCount = 6)
+    }
+
+    @Test
+    fun rebuildRandomTraversalState_withOutOfBoundsCurrentIndexStillBuildsValidOrder() {
+        val traversalState = ViewerIndexSelector.rebuildRandomTraversalState(
+            totalCount = 5,
+            currentIndex = 42,
+            randomInt = Random(3)::nextInt
         )
+
+        assertEquals(0, traversalState.currentOrderPosition)
+        assertValidTraversalState(traversalState, totalCount = 5)
+    }
+
+
+    @Test
+    fun rebuildRandomTraversalState_neverProducesInvalidStateAcrossSeeds() {
+        repeat(64) { seed ->
+            val traversalState = ViewerIndexSelector.rebuildRandomTraversalState(
+                totalCount = 32,
+                currentIndex = seed % 32,
+                randomInt = Random(seed)::nextInt
+            )
+            assertValidTraversalState(traversalState, totalCount = 32)
+        }
     }
 
     @Test
@@ -106,5 +96,24 @@ class ViewerIndexSelectorTest {
         }
 
         assertEquals(totalCount, visitedCount)
+        assertValidTraversalState(traversalState, totalCount)
+    }
+
+    private fun assertValidTraversalState(
+        traversalState: ViewerIndexSelector.RandomTraversalState,
+        totalCount: Int
+    ) {
+        assertEquals(totalCount, traversalState.order.size)
+        assertEquals(totalCount, traversalState.positionByImageIndex.size)
+        assertTrue(traversalState.currentOrderPosition in 0 until totalCount)
+
+        val seen = BooleanArray(totalCount)
+        for (position in traversalState.order.indices) {
+            val imageIndex = traversalState.order[position]
+            assertTrue(imageIndex in 0 until totalCount)
+            assertFalse(seen[imageIndex])
+            seen[imageIndex] = true
+            assertEquals(position, traversalState.positionByImageIndex[imageIndex])
+        }
     }
 }

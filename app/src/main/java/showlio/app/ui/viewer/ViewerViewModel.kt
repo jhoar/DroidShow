@@ -258,21 +258,18 @@ class ViewerViewModel(
     }
 
     private fun ensureRandomDisplayOrder(currentIndex: Int) {
-        if (!isRandomDisplayOrderValid()) {
+        if (!hasExpectedRandomTraversalShape()) {
             rebuildDisplayOrder(currentIndex)
         }
     }
 
-    private fun isRandomDisplayOrderValid(): Boolean {
+    private fun hasExpectedRandomTraversalShape(): Boolean {
         if (_uiState.value.displayMode != ViewerUiState.DisplayMode.RANDOM) return false
-        return ViewerIndexSelector.isRandomDisplayOrderValid(
-            order = randomOrder,
-            positionByImageIndex = positionByImageIndex,
-            totalCount = imageEntries.size,
-            currentOrderPosition = currentOrderPosition
-        )
+        val totalCount = imageEntries.size
+        if (totalCount == 0) return false
+        if (randomOrder.size != totalCount || positionByImageIndex.size != totalCount) return false
+        return currentOrderPosition in 0 until totalCount
     }
-
 
     private fun nextRandomOrderPosition(currentOrderPosition: Int, currentIndex: Int): Int {
         if (ViewerIndexSelector.shouldRebuildRandomOrder(currentOrderPosition, randomOrder.lastIndex)) {
