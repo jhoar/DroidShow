@@ -12,7 +12,7 @@ class SevenZArchiveReader(
     private val archiveUri: Uri
 ) : ArchiveReader {
 
-    private val tempArchive = TempArchiveFile(context, archiveUri, ".7z")
+    private val archiveFile = ArchiveTempCache(context.applicationContext).getOrCreate(archiveUri, ".7z")
 
     private data class SevenZEntryMetadata(
         val ref: ArchiveEntryRef,
@@ -69,7 +69,6 @@ class SevenZArchiveReader(
         isClosed = true
         sevenZFile?.close()
         sevenZFile = null
-        tempArchive.cleanup()
     }
 
     @Synchronized
@@ -82,7 +81,7 @@ class SevenZArchiveReader(
         }
 
         return SevenZFile.builder()
-            .setFile(tempArchive.file)
+            .setFile(archiveFile)
             .get()
             .also { sevenZFile = it }
     }
