@@ -1,5 +1,6 @@
 package showlio.app.ui.viewer
 
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -14,10 +15,31 @@ class ViewerIndexSelectorTest {
     }
 
     @Test
-    fun isRandomDisplayOrderValid_requiresFullPermutation() {
-        assertTrue(ViewerIndexSelector.isRandomDisplayOrderValid(listOf(2, 0, 1), totalCount = 3))
-        assertFalse(ViewerIndexSelector.isRandomDisplayOrderValid(listOf(0, 1), totalCount = 3))
-        assertFalse(ViewerIndexSelector.isRandomDisplayOrderValid(listOf(0, 0, 1), totalCount = 3))
+    fun isRandomDisplayOrderValid_requiresFullPermutationWithInverseMap() {
+        assertTrue(
+            ViewerIndexSelector.isRandomDisplayOrderValid(
+                order = intArrayOf(2, 0, 1),
+                positionByImageIndex = intArrayOf(1, 2, 0),
+                totalCount = 3,
+                currentOrderPosition = 1
+            )
+        )
+        assertFalse(
+            ViewerIndexSelector.isRandomDisplayOrderValid(
+                order = intArrayOf(0, 1),
+                positionByImageIndex = intArrayOf(0, 1),
+                totalCount = 3,
+                currentOrderPosition = 0
+            )
+        )
+        assertFalse(
+            ViewerIndexSelector.isRandomDisplayOrderValid(
+                order = intArrayOf(0, 0, 1),
+                positionByImageIndex = intArrayOf(0, 1, 2),
+                totalCount = 3,
+                currentOrderPosition = 0
+            )
+        )
     }
 
     @Test
@@ -28,26 +50,11 @@ class ViewerIndexSelectorTest {
     }
 
     @Test
-    fun resolveRandomImageIndex_clampsToLastValidOrderPosition() {
-        val order = listOf(2)
-
-        assertEquals(
-            2,
-            ViewerIndexSelector.resolveRandomImageIndex(
-                displayOrder = order,
-                nextOrderPosition = 1,
-                currentIndex = 4
-            )
-        )
-    }
-
-
-    @Test
     fun resolveRandomImageIndex_usesCurrentIndexWhenOrderIsEmpty() {
         assertEquals(
             4,
             ViewerIndexSelector.resolveRandomImageIndex(
-                displayOrder = emptyList(),
+                order = intArrayOf(),
                 nextOrderPosition = 0,
                 currentIndex = 4
             )
@@ -55,13 +62,49 @@ class ViewerIndexSelectorTest {
     }
 
     @Test
-    fun randomProgression_helpersAdvanceWithinOrder() {
-        val order = listOf(1, 0, 2)
-        val currentOrderPosition = ViewerIndexSelector.currentRandomOrderPosition(order, currentIndex = 0)
-        val nextOrderPosition = ViewerIndexSelector.nextRandomOrderPosition(currentOrderPosition)
+    fun rebuildRandomTraversalState_pinsCurrentImageAtZero() {
+        val traversalState = ViewerIndexSelector.rebuildRandomTraversalState(
+            totalCount = 6,
+            currentIndex = 4,
+            randomInt = Random(7)::nextInt
+        )
 
-        assertEquals(1, currentOrderPosition)
-        assertEquals(2, nextOrderPosition)
-        assertEquals(2, ViewerIndexSelector.resolveRandomImageIndex(order, nextOrderPosition, currentIndex = 0))
+        assertEquals(4, traversalState.order[0])
+        assertEquals(0, traversalState.positionByImageIndex[4])
+        assertEquals(0, traversalState.currentOrderPosition)
+        assertTrue(
+            ViewerIndexSelector.isRandomDisplayOrderValid(
+                order = traversalState.order,
+                positionByImageIndex = traversalState.positionByImageIndex,
+                totalCount = 6,
+                currentOrderPosition = traversalState.currentOrderPosition
+            )
+        )
+    }
+
+    @Test
+    fun randomTraversal_usesDirectPositionAdvancementForLargeSyntheticCounts() {
+        val totalCount = 100_000
+        val random = Random(11)
+        val traversalState = ViewerIndexSelector.rebuildRandomTraversalState(
+            totalCount = totalCount,
+            currentIndex = 42_000,
+            randomInt = random::nextInt
+        )
+
+        var currentOrderPosition = traversalState.currentOrderPosition
+        var visitedCount = 1
+        while (!ViewerIndexSelector.shouldRebuildRandomOrder(currentOrderPosition, traversalState.order.lastIndex)) {
+            currentOrderPosition = ViewerIndexSelector.nextRandomOrderPosition(currentOrderPosition)
+            val nextImage = ViewerIndexSelector.resolveRandomImageIndex(
+                order = traversalState.order,
+                nextOrderPosition = currentOrderPosition,
+                currentIndex = -1
+            )
+            assertEquals(currentOrderPosition, traversalState.positionByImageIndex[nextImage])
+            visitedCount++
+        }
+
+        assertEquals(totalCount, visitedCount)
     }
 }
