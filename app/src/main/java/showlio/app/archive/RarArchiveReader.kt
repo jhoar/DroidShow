@@ -11,10 +11,10 @@ class RarArchiveReader(
     private val archiveUri: Uri
 ) : ArchiveReader {
 
-    private val tempArchive = TempArchiveFile(context, archiveUri, ".rar")
+    private val archiveFile = ArchiveTempCache(context.applicationContext).getOrCreate(archiveUri, ".rar")
 
     private val imageEntries by lazy {
-        Archive(tempArchive.file).use { archive ->
+        Archive(archiveFile).use { archive ->
             archive.fileHeaders
                 .mapIndexedNotNull { index, header ->
                     if (header.isDirectory) {
@@ -45,7 +45,7 @@ class RarArchiveReader(
             "Archive entry does not belong to this archive reader."
         }
 
-        val archive = Archive(tempArchive.file)
+        val archive = Archive(archiveFile)
         val header = archive.fileHeaders.getOrNull(entry.index)
             ?: throw IllegalArgumentException("RAR entry index out of range: ${entry.index}")
 
@@ -73,6 +73,5 @@ class RarArchiveReader(
     }
 
     override fun close() {
-        tempArchive.cleanup()
     }
 }
