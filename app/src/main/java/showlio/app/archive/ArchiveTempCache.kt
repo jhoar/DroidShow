@@ -42,36 +42,51 @@ internal class ArchiveTempCache(private val context: Context) {
     }
 
     private fun resolveMetadata(uri: Uri): SourceMetadata {
-        var size: Long? = null
-        var modifiedAt: Long? = null
-
-        val descriptor = context.contentResolver.openAssetFileDescriptor(uri, "r")
-        if (descriptor != null) {
-            descriptor.use {
-                if (it.length >= 0) {
-                    size = it.length
-                }
+        if (uri.scheme == "file") {
+            val source = uri.path?.let(::File)
+            if (source != null && source.exists()) {
+                return SourceMetadata(size = source.length(), modifiedAt = source.lastModified())
             }
         }
 
-        context.contentResolver.query(
-            uri,
-            arrayOf(OpenableColumns.SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED),
-            null,
-            null,
-            null
-        )?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
-                    size = cursor.getLong(sizeIndex)
-                }
+        var size: Long? = null
+        var modifiedAt: Long? = null
 
-                val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-                if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) {
-                    modifiedAt = cursor.getLong(modifiedIndex)
+        try {
+            val descriptor = context.contentResolver.openAssetFileDescriptor(uri, "r")
+            if (descriptor != null) {
+                descriptor.use {
+                    if (it.length >= 0) {
+                        size = it.length
+                    }
                 }
             }
+        } catch (_: Throwable) {
+            // Some providers/test environments can throw reflective-access exceptions here.
+        }
+
+        try {
+            context.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) {
+                        size = cursor.getLong(sizeIndex)
+                    }
+
+                    val modifiedIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+                    if (modifiedIndex >= 0 && !cursor.isNull(modifiedIndex)) {
+                        modifiedAt = cursor.getLong(modifiedIndex)
+                    }
+                }
+            }
+        } catch (_: Throwable) {
+            // Best-effort metadata lookup; keying falls back to URI when unavailable.
         }
 
         return SourceMetadata(size = size, modifiedAt = modifiedAt)
