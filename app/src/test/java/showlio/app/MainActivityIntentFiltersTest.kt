@@ -38,14 +38,26 @@ class MainActivityIntentFiltersTest {
     }
 
     @Test
-    fun doesNotResolveFileSchemeArchive() {
+    fun resolvesFileSchemeArchiveByExtensionFallback() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             addCategory(Intent.CATEGORY_DEFAULT)
             data = Uri.parse("file:///sdcard/Download/archive.cbz")
             setPackage(context.packageName)
         }
 
-        assertFalse(resolvesToMainActivity(intent))
+        assertTrue(resolvesToMainActivity(intent))
+    }
+
+
+    @Test
+    fun resolvesContentArchiveWhenMimeTypeIsGeneric() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            setDataAndType(Uri.parse("content://provider/docs/archive.rar"), "application/octet-stream")
+            setPackage(context.packageName)
+        }
+
+        assertTrue(resolvesToMainActivity(intent))
     }
 
     @Test

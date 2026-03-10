@@ -33,6 +33,7 @@
                 <data android:mimeType="application/x-7z-compressed" />
                 <data android:mimeType="application/x-rar-compressed" />
                 <data android:mimeType="application/vnd.rar" />
+                <data android:mimeType="application/octet-stream" />
 
                 <!-- Common comic archive MIME variants from file managers/providers -->
                 <data android:mimeType="application/vnd.comicbook+zip" />
@@ -56,6 +57,22 @@
                 <data android:scheme="content" android:pathPattern=".*\\.7z" />
                 <data android:scheme="content" android:pathPattern=".*\\.cbz" />
                 <data android:scheme="content" android:pathPattern=".*\\.cbr" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <!--
+                    Compatibility fallback for file managers that still expose file:// URIs.
+                    We narrow handling to known archive extensions only.
+                -->
+
+                <data android:scheme="file" android:pathPattern=".*\\.zip" />
+                <data android:scheme="file" android:pathPattern=".*\\.rar" />
+                <data android:scheme="file" android:pathPattern=".*\\.7z" />
+                <data android:scheme="file" android:pathPattern=".*\\.cbz" />
+                <data android:scheme="file" android:pathPattern=".*\\.cbr" />
             </intent-filter>
         </activity>
     </application>
