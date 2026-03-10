@@ -11,7 +11,7 @@ class ZipArchiveReader(
     private val archiveUri: Uri
 ) : ArchiveReader {
 
-    private val tempArchive = TempArchiveFile(context, archiveUri, ".zip")
+    private val archiveFile = ArchiveTempCache(context.applicationContext).getOrCreate(archiveUri, ".zip")
 
     private data class ZipEntryMetadata(
         val ref: ArchiveEntryRef,
@@ -73,7 +73,6 @@ class ZipArchiveReader(
     override fun close() {
         zipFile?.close()
         zipFile = null
-        tempArchive.cleanup()
     }
 
     @Synchronized
@@ -84,7 +83,7 @@ class ZipArchiveReader(
         }
 
         return ZipFile.builder()
-            .setFile(tempArchive.file)
+            .setFile(archiveFile)
             .get()
             .also { zipFile = it }
     }
