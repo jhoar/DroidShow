@@ -3,13 +3,16 @@ package showlio.app.ui.viewer
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import android.net.Uri
+import android.os.Looper
 import androidx.lifecycle.SavedStateHandle
+import java.time.Duration
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
@@ -136,11 +139,12 @@ class ViewerViewModelStateSyncTest {
 
     private fun waitUntil(timeoutMs: Long, condition: () -> Boolean, onTimeout: () -> String) {
         val start = System.currentTimeMillis()
+        val mainLooper = Shadows.shadowOf(Looper.getMainLooper())
         while (!condition()) {
             if (System.currentTimeMillis() - start > timeoutMs) {
                 throw AssertionError("Condition was not met within ${timeoutMs}ms; state=${onTimeout()}")
             }
-            Thread.sleep(10)
+            mainLooper.idleFor(Duration.ofMillis(10))
         }
     }
 
