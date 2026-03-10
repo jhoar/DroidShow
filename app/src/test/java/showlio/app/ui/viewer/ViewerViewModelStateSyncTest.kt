@@ -83,6 +83,55 @@ class ViewerViewModelStateSyncTest {
         )
     }
 
+
+
+    @Test
+    fun `latest archive load wins when load requests overlap`() {
+        val (viewModel, savedStateHandle) = createViewModel()
+        val firstUri = Uri.parse("content://archive/first.cbz")
+        val secondUri = Uri.parse("content://archive/second.cbz")
+
+        viewModel.listImageEntriesOverride = { uri ->
+            if (uri == firstUri) {
+                kotlinx.coroutines.delay(200)
+            } else {
+                kotlinx.coroutines.delay(20)
+            }
+            listOf(
+                showlio.app.archive.ArchiveEntryRef(
+                    archiveUri = uri,
+                    entryPath = "page.jpg",
+                    compressedSize = 1,
+                    uncompressedSize = 1,
+                    index = 0
+                )
+            )
+        }
+        viewModel.decodeEntryBitmapOverride = { null }
+
+        viewModel.loadArchiveIfNeeded(firstUri)
+        viewModel.loadArchiveIfNeeded(secondUri)
+
+        waitUntil(timeoutMs = 2_000) { !viewModel.uiState.value.isLoading }
+
+        assertEquals(secondUri, viewModel.uiState.value.archiveUri)
+        assertEquals(1, viewModel.uiState.value.totalCount)
+        assertEquals(0, viewModel.uiState.value.currentIndex)
+        assertEquals(secondUri.toString(), savedStateHandle.get<String>("archive_uri"))
+        assertEquals(0, savedStateHandle.get<Int>("current_index"))
+    }
+
+
+    private fun waitUntil(timeoutMs: Long, condition: () -> Boolean) {
+        val start = System.currentTimeMillis()
+        while (!condition()) {
+            if (System.currentTimeMillis() - start > timeoutMs) {
+                throw AssertionError("Condition was not met within ${timeoutMs}ms")
+            }
+            Thread.sleep(10)
+        }
+    }
+
     private fun createViewModel(): Pair<ViewerViewModel, SavedStateHandle> {
         val savedStateHandle = SavedStateHandle()
         val viewModel = ViewerViewModel(

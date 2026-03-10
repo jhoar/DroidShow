@@ -1,6 +1,7 @@
 package showlio.app.ui.viewer
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
@@ -26,11 +27,16 @@ class ViewerViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
+    internal var listImageEntriesOverride: (suspend (Uri) -> List<ArchiveEntryRef>)? = null
+    internal var decodeEntryBitmapOverride: (suspend (ArchiveEntryRef) -> Bitmap?)? = null
+
     private val _uiState = MutableStateFlow(ViewerUiState())
     val uiState: StateFlow<ViewerUiState> = _uiState.asStateFlow()
 
     private var imageEntries: List<ArchiveEntryRef> = emptyList()
     private var slideshowJob: Job? = null
+    private var loadJob: Job? = null
+    private var activeLoadToken: Long = 0L
     private var loadingUri: Uri? = null
     private var randomOrder: IntArray = IntArray(0)
     private var positionByImageIndex: IntArray = IntArray(0)
@@ -94,6 +100,8 @@ class ViewerViewModel(
     }
 
     private fun loadArchive(uri: Uri, resetPosition: Boolean) {
+        loadJob?.cancel()
+        val loadToken = ++activeLoadToken
         loadingUri = uri
         updateLoadingState(uri)
 
@@ -103,15 +111,18 @@ class ViewerViewModel(
         )
         savedStateHandle[KEY_CURRENT_INDEX] = initialIndex
 
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             val result = runCatching {
-                withContext(Dispatchers.IO) {
+                listImageEntriesOverride?.invoke(uri) ?: withContext(Dispatchers.IO) {
                     val reader = ensureActiveReader(uri)
                     reader.listImageEntries()
                 }
             }
 
             result.onSuccess { entries ->
+                if (!isLatestLoadRequest(loadToken, uri)) {
+                    return@onSuccess
+                }
                 loadingUri = null
                 imageEntries = entries
                 if (entries.isEmpty()) {
@@ -127,15 +138,22 @@ class ViewerViewModel(
                     lastIndex = entries.lastIndex
                 )
                 rebuildDisplayOrder(restoredIndex)
-                showEntry(restoredIndex)
+                showEntry(restoredIndex, loadToken, uri)
                 restartSlideshowLoopIfNeeded()
             }.onFailure { throwable ->
+                if (!isLatestLoadRequest(loadToken, uri)) {
+                    return@onFailure
+                }
                 closeActiveReader()
                 loadingUri = null
                 clearContentWithError(message = errorMessageFor(throwable))
                 stopSlideshowLoop()
             }
         }
+    }
+
+    private fun isLatestLoadRequest(token: Long, uri: Uri): Boolean {
+        return token == activeLoadToken && loadingUri == uri
     }
 
     private fun setPlaying(playing: Boolean, restartLoop: Boolean = true) {
@@ -176,15 +194,22 @@ class ViewerViewModel(
         savedStateHandle[KEY_DISPLAY_MODE] = state.displayMode.name
     }
 
-    private suspend fun showEntry(index: Int) {
+    private suspend fun showEntry(index: Int, expectedLoadToken: Long? = null, expectedUri: Uri? = null) {
         if (imageEntries.isEmpty()) return
+        if (expectedLoadToken != null && expectedUri != null && !isLatestLoadRequest(expectedLoadToken, expectedUri)) {
+            return
+        }
 
         val entry = imageEntries[index]
-        val bitmap = withContext(Dispatchers.IO) {
+        val bitmap = decodeEntryBitmapOverride?.invoke(entry) ?: withContext(Dispatchers.IO) {
             val reader = ensureActiveReader(entry.archiveUri)
             reader.openEntryStream(entry).use { stream ->
                 BitmapFactory.decodeStream(stream)
             }
+        }
+
+        if (expectedLoadToken != null && expectedUri != null && !isLatestLoadRequest(expectedLoadToken, expectedUri)) {
+            return
         }
 
         _uiState.value = _uiState.value.copy(
@@ -217,6 +242,7 @@ class ViewerViewModel(
     }
 
     override fun onCleared() {
+        loadJob?.cancel()
         stopSlideshowLoop()
         closeActiveReader()
         super.onCleared()
