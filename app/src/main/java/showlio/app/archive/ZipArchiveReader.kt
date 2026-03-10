@@ -5,6 +5,7 @@ import android.net.Uri
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.archivers.zip.ZipFile
 import java.io.InputStream
+import kotlin.collections.LinkedHashMap
 
 class ZipArchiveReader(
     context: Context,
@@ -14,12 +15,14 @@ class ZipArchiveReader(
     private val archiveFile = ArchiveTempCache(context.applicationContext).getOrCreate(archiveUri, ".zip")
 
     private data class ZipEntryMetadata(
-        val ref: ArchiveEntryRef,
-        val entry: ZipArchiveEntry,
+        val path: String,
+        val index: Int,
+        val compressedSize: Long,
+        val uncompressedSize: Long,
         val localHeaderOffset: Long
     )
 
-    private val indexedEntries by lazy {
+    private val metadataEntries by lazy {
         val discovered = mutableListOf<ZipEntryMetadata>()
         val zipFile = requireZipFile()
         val entries = zipFile.entries
@@ -29,14 +32,10 @@ class ZipArchiveReader(
             val name = currentEntry.name
             if (!currentEntry.isDirectory && ArchiveEntrySupport.isImageEntry(name)) {
                 discovered += ZipEntryMetadata(
-                    ref = ArchiveEntryRef(
-                        archiveUri = archiveUri,
-                        entryPath = name,
-                        compressedSize = currentEntry.compressedSize,
-                        uncompressedSize = currentEntry.size,
-                        index = index
-                    ),
-                    entry = currentEntry,
+                    path = name,
+                    index = index,
+                    compressedSize = currentEntry.compressedSize,
+                    uncompressedSize = currentEntry.size,
                     localHeaderOffset = currentEntry.localHeaderOffset
                 )
             }
@@ -45,13 +44,20 @@ class ZipArchiveReader(
         discovered
     }
 
-    private val metadataByIndexAndPath by lazy {
-        indexedEntries.associateBy { it.ref.index to it.ref.entryPath }
-    }
+    private var metadataByIndexAndPath: Map<Pair<Int, String>, ZipEntryMetadata>? = null
+    private var zipEntriesByOffset: Map<Long, ZipArchiveEntry>? = null
 
     private val imageEntries by lazy {
-        indexedEntries
-            .map { it.ref }
+        metadataEntries
+            .map {
+                ArchiveEntryRef(
+                    archiveUri = archiveUri,
+                    entryPath = it.path,
+                    compressedSize = it.compressedSize,
+                    uncompressedSize = it.uncompressedSize,
+                    index = it.index
+                )
+            }
             .sortedWith(compareBy(ArchiveEntrySupport.naturalPathComparator) { it.entryPath })
     }
 
@@ -64,15 +70,20 @@ class ZipArchiveReader(
             "Archive entry does not belong to this archive reader."
         }
 
-        val metadata = metadataByIndexAndPath[entry.index to entry.entryPath]
+        val metadata = requireMetadataByIndexAndPath()[entry.index to entry.entryPath]
             ?: throw IllegalArgumentException("ZIP entry not found: ${entry.entryPath}")
 
-        return requireZipFile().getInputStream(metadata.entry)
+        val zipEntry = requireZipEntriesByOffset()[metadata.localHeaderOffset]
+            ?: throw IllegalArgumentException("ZIP entry offset not found: ${entry.entryPath}")
+
+        return requireZipFile().getInputStream(zipEntry)
     }
 
     override fun close() {
         zipFile?.close()
         zipFile = null
+        metadataByIndexAndPath = null
+        zipEntriesByOffset = null
     }
 
     @Synchronized
@@ -86,5 +97,32 @@ class ZipArchiveReader(
             .setFile(archiveFile)
             .get()
             .also { zipFile = it }
+    }
+
+    private fun requireMetadataByIndexAndPath(): Map<Pair<Int, String>, ZipEntryMetadata> {
+        val existing = metadataByIndexAndPath
+        if (existing != null) {
+            return existing
+        }
+
+        return metadataEntries
+            .associateBy { it.index to it.path }
+            .also { metadataByIndexAndPath = it }
+    }
+
+    private fun requireZipEntriesByOffset(): Map<Long, ZipArchiveEntry> {
+        val existing = zipEntriesByOffset
+        if (existing != null) {
+            return existing
+        }
+
+        val entries = LinkedHashMap<Long, ZipArchiveEntry>()
+        val iterator = requireZipFile().entriesInPhysicalOrder
+        while (iterator.hasMoreElements()) {
+            val zipEntry = iterator.nextElement()
+            entries[zipEntry.localHeaderOffset] = zipEntry
+        }
+
+        return entries.also { zipEntriesByOffset = it }
     }
 }
