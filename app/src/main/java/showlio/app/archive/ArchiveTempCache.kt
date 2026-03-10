@@ -6,9 +6,6 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.Log
 import java.io.File
-import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicLong
@@ -112,7 +109,7 @@ internal class ArchiveTempCache(private val context: Context) {
                 }
             }
 
-            moveAtomically(tempFile = tempFile, targetFile = targetFile)
+            moveIntoPlace(tempFile = tempFile, targetFile = targetFile)
             targetFile.setLastModified(System.currentTimeMillis())
         } catch (error: Throwable) {
             tempFile.delete()
@@ -120,20 +117,13 @@ internal class ArchiveTempCache(private val context: Context) {
         }
     }
 
-    private fun moveAtomically(tempFile: File, targetFile: File) {
-        try {
-            Files.move(
-                tempFile.toPath(),
-                targetFile.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING
-            )
-        } catch (_: AtomicMoveNotSupportedException) {
-            Files.move(
-                tempFile.toPath(),
-                targetFile.toPath(),
-                StandardCopyOption.REPLACE_EXISTING
-            )
+    private fun moveIntoPlace(tempFile: File, targetFile: File) {
+        if (targetFile.exists() && !targetFile.delete()) {
+            throw IllegalStateException("Unable to replace existing cache file: ${targetFile.absolutePath}")
+        }
+
+        if (!tempFile.renameTo(targetFile)) {
+            throw IllegalStateException("Unable to finalize cache file: ${targetFile.absolutePath}")
         }
     }
 
