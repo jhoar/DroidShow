@@ -360,11 +360,28 @@ class ViewerViewModel(
                 app.getString(R.string.error_unsupported_archive)
             }
 
-            throwable is IOException || throwable.cause is IOException -> {
+            hasCause(throwable) { it.javaClass.name.startsWith("com.github.junrar") } -> {
+                app.getString(R.string.error_unsupported_rar)
+            }
+
+            hasCause(throwable) { it is SecurityException } -> {
+                app.getString(R.string.error_storage_permission_required)
+            }
+
+            hasCause(throwable) { it is IOException } -> {
                 app.getString(R.string.error_corrupt_archive)
             }
 
             else -> app.getString(R.string.error_open_archive)
         }
+    }
+
+    private fun hasCause(throwable: Throwable, predicate: (Throwable) -> Boolean): Boolean {
+        var current: Throwable? = throwable
+        while (current != null) {
+            if (predicate(current)) return true
+            current = current.cause
+        }
+        return false
     }
 }

@@ -38,14 +38,26 @@ class MainActivityIntentFiltersTest {
     }
 
     @Test
-    fun doesNotResolveFileSchemeArchive() {
+    fun resolvesFileSchemeArchiveByExtensionFallback() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             addCategory(Intent.CATEGORY_DEFAULT)
             data = Uri.parse("file:///sdcard/Download/archive.cbz")
             setPackage(context.packageName)
         }
 
-        assertFalse(resolvesToMainActivity(intent))
+        assertTrue(resolvesToMainActivity(intent))
+    }
+
+
+    @Test
+    fun resolvesContentArchiveWhenMimeTypeIsGeneric() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            setDataAndType(Uri.parse("content://provider/docs/archive.rar"), "application/octet-stream")
+            setPackage(context.packageName)
+        }
+
+        assertTrue(resolvesToMainActivity(intent))
     }
 
     @Test
@@ -73,14 +85,25 @@ class MainActivityIntentFiltersTest {
     }
 
     @Test
-    fun doesNotResolveBrowsableEntry() {
+    fun resolvesBrowsableEntry() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
             setDataAndType(Uri.parse("content://provider/docs/archive.zip"), "application/zip")
             setPackage(context.packageName)
         }
 
-        assertFalse(resolvesToMainActivity(intent))
+        assertTrue(resolvesToMainActivity(intent))
+    }
+
+    @Test
+    fun resolvesUppercaseExtensionFallback() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            data = Uri.parse("content://provider/docs/archive.RAR")
+            setPackage(context.packageName)
+        }
+
+        assertTrue(resolvesToMainActivity(intent))
     }
 
     private fun resolvesToMainActivity(intent: Intent): Boolean {

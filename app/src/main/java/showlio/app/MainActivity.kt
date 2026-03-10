@@ -1,6 +1,9 @@
 package showlio.app
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.NumberPicker
@@ -38,6 +41,15 @@ class MainActivity : AppCompatActivity() {
         )
         viewerViewModel.loadArchiveIfNeeded(uri)
     }
+    private var pendingArchiveUriForPermission: Uri? = null
+    private val readStoragePermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val pendingUri = pendingArchiveUriForPermission
+            pendingArchiveUriForPermission = null
+            if (granted && pendingUri != null) {
+                viewerViewModel.loadArchiveIfNeeded(pendingUri)
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -208,6 +220,12 @@ class MainActivity : AppCompatActivity() {
 
         val uri = intent.data ?: return
         persistReadPermissionIfPossible(uri = uri, grantFlags = intent.flags)
+        if (requiresLegacyStoragePermission(uri) && !hasLegacyStoragePermission()) {
+            pendingArchiveUriForPermission = uri
+            readStoragePermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+            return
+        }
+
         viewerViewModel.loadArchiveIfNeeded(uri)
     }
 
@@ -218,6 +236,18 @@ class MainActivity : AppCompatActivity() {
         runCatching {
             contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+    }
+
+    private fun requiresLegacyStoragePermission(uri: Uri): Boolean {
+        return uri.scheme == "file" && Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2
+    }
+
+    private fun hasLegacyStoragePermission(): Boolean {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2) return true
+        return ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     private fun resolveArchiveName(uri: Uri): String {
@@ -252,6 +282,9 @@ class MainActivity : AppCompatActivity() {
             "application/x-cbz",
             "application/x-rar-compressed",
             "application/vnd.rar",
+            "application/x-rar",
+            "application/rar",
+            "application/octet-stream",
             "application/vnd.comicbook-rar",
             "application/x-cbr",
             "application/x-7z-compressed",

@@ -23,6 +23,8 @@ internal object ArchiveTypeResolver {
     private val rarMimeTypes = setOf(
         "application/x-rar-compressed",
         "application/vnd.rar",
+        "application/x-rar",
+        "application/rar",
         "application/vnd.comicbook-rar",
         "application/x-cbr"
     )

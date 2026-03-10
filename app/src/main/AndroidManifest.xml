@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -21,10 +25,10 @@
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <!--
-                    Accept only content:// archives delivered by trusted Android components
-                    (DocumentProvider/file manager/share sheet). We intentionally do not expose
-                    this as a browsable web deep link surface.
+                    Accept archive VIEW intents from file managers, document providers,
+                    and browser-like pickers that include BROWSABLE.
                 -->
 
                 <data android:scheme="content" />
@@ -33,6 +37,9 @@
                 <data android:mimeType="application/x-7z-compressed" />
                 <data android:mimeType="application/x-rar-compressed" />
                 <data android:mimeType="application/vnd.rar" />
+                <data android:mimeType="application/x-rar" />
+                <data android:mimeType="application/rar" />
+                <data android:mimeType="application/octet-stream" />
 
                 <!-- Common comic archive MIME variants from file managers/providers -->
                 <data android:mimeType="application/vnd.comicbook+zip" />
@@ -45,17 +52,44 @@
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <!--
                     Extension fallback for providers that omit or mislabel MIME type.
-                    Threat model: narrow to content:// only and accepted archive extensions;
-                    avoid file:// and wildcard MIME matching to reduce unintended URI handling.
+                    Keep content:// scoped while allowing BROWSABLE-based resolvers.
                 -->
 
-                <data android:scheme="content" android:pathPattern=".*\\.zip" />
-                <data android:scheme="content" android:pathPattern=".*\\.rar" />
-                <data android:scheme="content" android:pathPattern=".*\\.7z" />
-                <data android:scheme="content" android:pathPattern=".*\\.cbz" />
-                <data android:scheme="content" android:pathPattern=".*\\.cbr" />
+                <data android:scheme="content" android:pathSuffix=".zip" />
+                <data android:scheme="content" android:pathSuffix=".ZIP" />
+                <data android:scheme="content" android:pathSuffix=".rar" />
+                <data android:scheme="content" android:pathSuffix=".RAR" />
+                <data android:scheme="content" android:pathSuffix=".7z" />
+                <data android:scheme="content" android:pathSuffix=".7Z" />
+                <data android:scheme="content" android:pathSuffix=".cbz" />
+                <data android:scheme="content" android:pathSuffix=".CBZ" />
+                <data android:scheme="content" android:pathSuffix=".cbr" />
+                <data android:scheme="content" android:pathSuffix=".CBR" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!--
+                    Compatibility fallback for file managers that still expose file:// URIs.
+                    We narrow handling to known archive extensions only.
+                -->
+
+                <data android:scheme="file" android:pathSuffix=".zip" />
+                <data android:scheme="file" android:pathSuffix=".ZIP" />
+                <data android:scheme="file" android:pathSuffix=".rar" />
+                <data android:scheme="file" android:pathSuffix=".RAR" />
+                <data android:scheme="file" android:pathSuffix=".7z" />
+                <data android:scheme="file" android:pathSuffix=".7Z" />
+                <data android:scheme="file" android:pathSuffix=".cbz" />
+                <data android:scheme="file" android:pathSuffix=".CBZ" />
+                <data android:scheme="file" android:pathSuffix=".cbr" />
+                <data android:scheme="file" android:pathSuffix=".CBR" />
             </intent-filter>
         </activity>
     </application>

@@ -17,6 +17,8 @@ class ArchiveTypeResolverTest {
     fun `resolve detects archive by mime type when extension is unavailable`() {
         assertEquals(ArchiveType.ZIP, ArchiveTypeResolver.resolve(null, "application/zip"))
         assertEquals(ArchiveType.RAR, ArchiveTypeResolver.resolve(null, "application/vnd.rar"))
+        assertEquals(ArchiveType.RAR, ArchiveTypeResolver.resolve(null, "application/x-rar"))
+        assertEquals(ArchiveType.RAR, ArchiveTypeResolver.resolve(null, "application/rar"))
         assertEquals(ArchiveType.SEVEN_Z, ArchiveTypeResolver.resolve(null, "application/x-7z-compressed"))
     }
 
