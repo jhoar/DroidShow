@@ -83,6 +83,27 @@ class ViewerViewModelStateSyncTest {
         )
     }
 
+    @Test
+    fun `calculateInSampleSize downsamples large fixtures for screen targets`() {
+        val (viewModel, _) = createViewModel()
+
+        val massiveLandscape = viewModel.invokeCalculateInSampleSize(
+            sourceWidth = 12_000,
+            sourceHeight = 8_000,
+            targetWidth = 1_080,
+            targetHeight = 1_920
+        )
+        val ultraSquare = viewModel.invokeCalculateInSampleSize(
+            sourceWidth = 12_000,
+            sourceHeight = 12_000,
+            targetWidth = 1_000,
+            targetHeight = 1_000
+        )
+
+        assertEquals(4, massiveLandscape)
+        assertEquals(8, ultraSquare)
+    }
+
     private fun createViewModel(): Pair<ViewerViewModel, SavedStateHandle> {
         val savedStateHandle = SavedStateHandle()
         val viewModel = ViewerViewModel(
@@ -106,6 +127,23 @@ class ViewerViewModelStateSyncTest {
         val method = ViewerViewModel::class.java.getDeclaredMethod("updateLoadingState", Uri::class.java)
         method.isAccessible = true
         method.invoke(this, uri)
+    }
+
+    private fun ViewerViewModel.invokeCalculateInSampleSize(
+        sourceWidth: Int,
+        sourceHeight: Int,
+        targetWidth: Int,
+        targetHeight: Int
+    ): Int {
+        val method = ViewerViewModel::class.java.getDeclaredMethod(
+            "calculateInSampleSize",
+            Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType
+        )
+        method.isAccessible = true
+        return method.invoke(this, sourceWidth, sourceHeight, targetWidth, targetHeight) as Int
     }
 
     private fun ViewerViewModel.invokeClearContentWithError(message: String, stopPlayback: Boolean) {
