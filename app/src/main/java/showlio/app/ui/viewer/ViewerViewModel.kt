@@ -153,7 +153,7 @@ class ViewerViewModel(
     }
 
     private fun isLatestLoadRequest(token: Long, uri: Uri): Boolean {
-        return token == activeLoadToken && loadingUri == uri
+        return token == activeLoadToken && _uiState.value.archiveUri == uri
     }
 
     private fun setPlaying(playing: Boolean, restartLoop: Boolean = true) {
