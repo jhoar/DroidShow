@@ -85,14 +85,25 @@ class MainActivityIntentFiltersTest {
     }
 
     @Test
-    fun doesNotResolveBrowsableEntry() {
+    fun resolvesBrowsableEntry() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             addCategory(Intent.CATEGORY_BROWSABLE)
             setDataAndType(Uri.parse("content://provider/docs/archive.zip"), "application/zip")
             setPackage(context.packageName)
         }
 
-        assertFalse(resolvesToMainActivity(intent))
+        assertTrue(resolvesToMainActivity(intent))
+    }
+
+    @Test
+    fun resolvesUppercaseExtensionFallback() {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            addCategory(Intent.CATEGORY_DEFAULT)
+            data = Uri.parse("content://provider/docs/archive.RAR")
+            setPackage(context.packageName)
+        }
+
+        assertTrue(resolvesToMainActivity(intent))
     }
 
     private fun resolvesToMainActivity(intent: Intent): Boolean {
