@@ -36,7 +36,7 @@ internal class ArchiveTempCache(private val context: Context) {
 
             ArchiveTempCacheMetrics.recordMiss()
             writeToCache(cacheFile, archiveUri)
-            evictIfNeeded()
+            evictIfNeeded(protectedFile = cacheFile)
             return cacheFile
         }
     }
@@ -161,7 +161,7 @@ internal class ArchiveTempCache(private val context: Context) {
         }
     }
 
-    private fun evictIfNeeded() {
+    private fun evictIfNeeded(protectedFile: File) {
         val files = cacheDir.listFiles().orEmpty()
             .filter { it.isFile && !it.name.endsWith(TEMP_FILE_SUFFIX) }
             .sortedBy { it.lastModified() }
@@ -176,12 +176,22 @@ internal class ArchiveTempCache(private val context: Context) {
             if (totalBytes <= MAX_CACHE_BYTES) {
                 break
             }
+            if (file.absolutePath == protectedFile.absolutePath) {
+                continue
+            }
 
             val fileSize = file.length()
             if (file.delete()) {
                 totalBytes -= fileSize
                 ArchiveTempCacheMetrics.recordEviction()
             }
+        }
+
+        if (totalBytes > MAX_CACHE_BYTES && protectedFile.length() > MAX_CACHE_BYTES) {
+            Log.d(
+                LOG_TAG,
+                "archive temp cache oversize entry retained (size=${protectedFile.length()}, budget=$MAX_CACHE_BYTES)"
+            )
         }
     }
 
