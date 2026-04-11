@@ -1,5 +1,7 @@
 package showlio.app.ui.viewer
 
+import desktopApp.policy.ViewerIndexSelector
+import desktopApp.policy.ViewerStatePolicy
 import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

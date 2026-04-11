@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import desktopApp.archive.ArchiveKind
+import desktopApp.archive.ArchiveTypeResolver
 import java.net.URLDecoder
 
 object ArchiveReaderFactory {
@@ -12,13 +14,13 @@ object ArchiveReaderFactory {
             ?: throw IllegalArgumentException("Unsupported archive type")
 
         return when (archiveType) {
-            ArchiveType.ZIP -> ZipArchiveReader(context, archiveUri)
-            ArchiveType.RAR -> RarArchiveReader(context, archiveUri)
-            ArchiveType.SEVEN_Z -> SevenZArchiveReader(context, archiveUri)
+            ArchiveKind.ZIP -> ZipArchiveReader(context, archiveUri)
+            ArchiveKind.RAR -> RarArchiveReader(context, archiveUri)
+            ArchiveKind.SEVEN_Z -> SevenZArchiveReader(context, archiveUri)
         }
     }
 
-    private fun resolveArchiveType(context: Context, archiveUri: Uri): ArchiveType? {
+    private fun resolveArchiveType(context: Context, archiveUri: Uri): ArchiveKind? {
         val mimeType = context.contentResolver.getType(archiveUri)
         val nameCandidates = resolveNameCandidates(context, archiveUri)
 

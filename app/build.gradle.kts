@@ -60,6 +60,9 @@ dependencies {
     implementation("org.tukaani:xz:1.9")
     implementation("com.github.junrar:junrar:7.5.5")
 
+    implementation(project(":desktopApp-policy"))
+    implementation(project(":desktopApp-archive"))
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.test:core:1.6.1")
     testImplementation("org.robolectric:robolectric:4.14.1")
