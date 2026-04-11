@@ -1,0 +1,80 @@
+name: Desktop CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  shared-tests:
+    name: Shared desktop module tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Run desktop shared module tests
+        run: |
+          gradle --no-daemon :desktopApp-policy:test :desktopApp-archive:test
+
+  package-desktop:
+    name: Package desktop app (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    needs: shared-tests
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS PKG
+            package_task: :desktopApp:packageReleasePkg
+            artifact_name: desktop-macos-pkg
+            artifact_path: desktopApp/build/compose/binaries/main-release/pkg/*.pkg
+          - os: windows-latest
+            label: Windows MSI
+            package_task: :desktopApp:packageReleaseMsi
+            artifact_name: desktop-windows-msi
+            artifact_path: desktopApp/build/compose/binaries/main-release/msi/*.msi
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Build package
+        shell: bash
+        run: gradle --no-daemon ${{ matrix.package_task }}
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
