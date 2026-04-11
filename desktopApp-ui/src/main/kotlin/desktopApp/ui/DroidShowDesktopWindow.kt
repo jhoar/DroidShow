@@ -41,7 +41,7 @@ import desktopApp.viewer.DesktopViewerController
 import desktopApp.viewer.ViewerStatePolicy
 import desktopApp.viewer.ViewerUiState
 import java.awt.FileDialog
-import java.io.File
+import java.nio.file.Path
 
 @Composable
 fun DroidShowDesktopWindow(
@@ -208,12 +208,16 @@ private fun canControlPlayback(state: ViewerUiState): Boolean {
 }
 
 private fun buildStatusText(state: ViewerUiState): String {
-    val archiveName = state.archivePath?.let { path ->
-        File(path).name.ifBlank { path }
-    } ?: "No archive opened"
+    val archiveName = state.archivePath
+        ?.let(::displayNameForPath)
+        ?: "No archive opened"
+    val imageName = state.currentEntry
+        ?.entryPath
+        ?.let(::displayNameForPath)
 
     val base = if (state.totalCount > 0) {
-        "${state.currentIndex + 1}/${state.totalCount} • $archiveName"
+        val indexText = "${state.currentIndex + 1}/${state.totalCount}"
+        listOfNotNull(indexText, archiveName, imageName).joinToString(" • ")
     } else {
         archiveName
     }
@@ -222,11 +226,18 @@ private fun buildStatusText(state: ViewerUiState): String {
     return if (error.isNullOrBlank()) base else "$base • $error"
 }
 
+private fun displayNameForPath(path: String): String {
+    return runCatching {
+        Path.of(path).fileName?.toString().orEmpty()
+    }.getOrDefault("").ifBlank { path }
+}
+
 private fun openArchivePicker(window: androidx.compose.ui.awt.ComposeWindow, onSelected: (String) -> Unit) {
     val picker = FileDialog(window, "Open Archive", FileDialog.LOAD).apply {
         file = "*.zip;*.cbz;*.rar;*.cbr;*.7z;*.cb7"
         isVisible = true
     }
-    val selectedFile = picker.file ?: return
-    onSelected(File(picker.directory, selectedFile).absolutePath)
+
+    val selectedPath = picker.files.firstOrNull()?.toPath()?.toAbsolutePath()?.toString() ?: return
+    onSelected(selectedPath)
 }
