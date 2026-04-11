@@ -37,7 +37,6 @@ compose.desktop {
             packageVersion = "1.0.0"
             description = "Desktop archive viewer for Showlio"
             vendor = "Showlio"
-            iconFile.set(project.file("src/main/resources/showlio-icon.svg"))
 
             macOS {
                 bundleID = "io.github.jhoar.showlio.desktop"
