@@ -16,6 +16,10 @@ compose.desktop {
     application {
         mainClass = "desktopApp.DesktopMainKt"
 
+        buildTypes.release.proguard {
+            configurationFiles.from(project.file("proguard-rules.pro"))
+        }
+
         nativeDistributions {
             targetFormats(
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg,
