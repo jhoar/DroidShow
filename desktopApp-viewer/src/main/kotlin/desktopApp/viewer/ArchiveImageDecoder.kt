@@ -16,7 +16,7 @@ class DefaultArchiveImageDecoder : ArchiveImageDecoder {
     override fun decode(stream: InputStream, maxDimension: Int): ImageBitmap {
         val imageStream = ImageIO.createImageInputStream(stream)
             ?: throw IOException("Unable to create image input stream")
-        imageStream.use { input ->
+        return imageStream.use { input ->
             val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull()
                 ?: throw IOException("Unsupported image format")
             try {
