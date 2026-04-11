@@ -86,7 +86,7 @@ jobs:
 
       - name: Build package
         shell: bash
-        run: gradle --no-daemon ${{ matrix.package_task }}
+        run: gradle --no-daemon ${{ matrix.package_task }} -Pdesktop.disableProguard=true --stacktrace
 
       - name: List package output directory
         if: always()

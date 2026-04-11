@@ -12,12 +12,18 @@ dependencies {
     implementation(project(":desktopApp-ui"))
 }
 
+val disableDesktopProguard =
+    (findProperty("desktop.disableProguard") as String?)?.toBoolean() == true
+
 compose.desktop {
     application {
         mainClass = "desktopApp.DesktopMainKt"
 
         buildTypes.release.proguard {
-            configurationFiles.from(project.file("proguard-rules.pro"))
+            isEnabled.set(!disableDesktopProguard)
+            if (!disableDesktopProguard) {
+                configurationFiles.from(project.file("proguard-rules.pro"))
+            }
         }
 
         nativeDistributions {

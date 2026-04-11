@@ -36,6 +36,12 @@ gradle --no-daemon :desktopApp:packageReleasePkg
 gradle --no-daemon :desktopApp:packageReleaseMsi
 ```
 
+To bypass ProGuard during troubleshooting/CI triage:
+
+```bash
+gradle --no-daemon :desktopApp:packageReleaseDistributionForCurrentOS -Pdesktop.disableProguard=true
+```
+
 ## Artifact output locations
 
 Generated packages are written under:
