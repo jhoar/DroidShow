@@ -33,13 +33,14 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
-            packageName = "droidshow-desktop"
+            packageName = "showlio"
             packageVersion = "1.0.0"
-            description = "Desktop archive viewer for DroidShow"
-            vendor = "DroidShow"
+            description = "Desktop archive viewer for Showlio"
+            vendor = "Showlio"
+            iconFile.set(project.file("src/main/resources/showlio-icon.svg"))
 
             macOS {
-                bundleID = "io.github.jhoar.droidshow.desktop"
+                bundleID = "io.github.jhoar.showlio.desktop"
             }
         }
     }

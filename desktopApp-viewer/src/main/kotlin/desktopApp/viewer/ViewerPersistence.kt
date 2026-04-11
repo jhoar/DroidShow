@@ -18,7 +18,7 @@ interface ViewerPersistence {
 }
 
 class PreferencesViewerPersistence(
-    private val preferences: Preferences = Preferences.userRoot().node("droidshow/desktop/viewer")
+    private val preferences: Preferences = Preferences.userRoot().node("showlio/desktop/viewer")
 ) : ViewerPersistence {
 
     override fun load(): ViewerPersistedState? {
