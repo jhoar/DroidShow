@@ -33,6 +33,14 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
+            fileAssociations(
+                project.file("file-associations/windows-zip.properties"),
+                project.file("file-associations/windows-cbz.properties"),
+                project.file("file-associations/windows-rar.properties"),
+                project.file("file-associations/windows-cbr.properties"),
+                project.file("file-associations/windows-7z.properties"),
+                project.file("file-associations/windows-cb7.properties")
+            )
             packageName = "showlio"
             packageVersion = "1.0.0"
             description = "Desktop archive viewer for Showlio"
