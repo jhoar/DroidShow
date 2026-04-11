@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,8 +44,15 @@ import java.awt.FileDialog
 import java.io.File
 
 @Composable
-fun DroidShowDesktopWindow(onCloseRequest: () -> Unit) {
+fun DroidShowDesktopWindow(
+    onCloseRequest: () -> Unit,
+    initialArchivePath: String? = null
+) {
     val controller = remember { DesktopViewerController() }
+
+    LaunchedEffect(controller, initialArchivePath) {
+        controller.loadArchive(initialArchivePath)
+    }
 
     DisposableEffect(controller) {
         onDispose { controller.close() }
@@ -216,7 +224,7 @@ private fun buildStatusText(state: ViewerUiState): String {
 
 private fun openArchivePicker(window: androidx.compose.ui.awt.ComposeWindow, onSelected: (String) -> Unit) {
     val picker = FileDialog(window, "Open Archive", FileDialog.LOAD).apply {
-        file = "*.zip"
+        file = "*.zip;*.cbz;*.rar;*.cbr;*.7z;*.cb7"
         isVisible = true
     }
     val selectedFile = picker.file ?: return
