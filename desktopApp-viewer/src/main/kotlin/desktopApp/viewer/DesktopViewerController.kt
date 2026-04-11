@@ -1,26 +1,21 @@
 package desktopApp.viewer
 
 import desktopApp.policy.ViewerDisplayMode
-import desktopApp.policy.ViewerIndexSelector
 
-class DesktopViewerController {
-    var state: DesktopViewerState = DesktopViewerState()
-        private set
+class DesktopViewerController(
+    private val viewModel: ViewerViewModel = ViewerViewModel()
+) {
+    val state get() = viewModel.uiState.value
 
     fun advance() {
-        val totalCount = state.totalCount
-        if (totalCount <= 0) return
+        viewModel.advanceOnce()
+    }
 
-        val nextIndex = when (state.displayMode) {
-            ViewerDisplayMode.SEQUENTIAL -> {
-                ViewerIndexSelector.nextSequentialIndex(state.currentIndex, totalCount)
-            }
-            ViewerDisplayMode.RANDOM -> {
-                val nextPosition = ViewerIndexSelector.nextRandomOrderPosition(state.currentOrderPosition)
-                ViewerIndexSelector.resolveRandomImageIndex(state.randomOrder, nextPosition, state.currentIndex)
-            }
-        }
+    fun setDisplayMode(displayMode: ViewerDisplayMode) {
+        viewModel.setDisplayMode(displayMode)
+    }
 
-        state = state.copy(currentIndex = nextIndex)
+    fun close() {
+        viewModel.close()
     }
 }
