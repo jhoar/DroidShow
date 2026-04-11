@@ -1,5 +1,6 @@
 package desktopApp.viewer
 
+import androidx.compose.ui.graphics.ImageBitmap
 import desktopApp.archive.DesktopArchiveEntryRef
 import desktopApp.policy.ViewerDisplayMode
 
@@ -12,5 +13,6 @@ data class ViewerUiState(
     val currentIndex: Int = 0,
     val totalCount: Int = 0,
     val currentEntry: DesktopArchiveEntryRef? = null,
+    val bitmap: ImageBitmap? = null,
     val errorMessage: String? = null
 )

@@ -4,6 +4,8 @@ import desktopApp.archive.DesktopArchiveEntryRef
 import desktopApp.archive.DesktopArchiveReader
 import desktopApp.archive.DesktopArchiveReaderFactory
 import desktopApp.policy.ViewerDisplayMode
+import java.io.IOException
+import java.util.concurrent.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -19,8 +21,10 @@ import kotlin.random.Random
 class ViewerViewModel(
     private val persistence: ViewerPersistence = PreferencesViewerPersistence(),
     private val readerFactory: (String) -> DesktopArchiveReader = DesktopArchiveReaderFactory::create,
+    private val imageDecoder: ArchiveImageDecoder = DefaultArchiveImageDecoder(),
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-    private val randomInt: (Int) -> Int = Random.Default::nextInt
+    private val randomInt: (Int) -> Int = Random.Default::nextInt,
+    private val maxBitmapDimension: Int = DEFAULT_MAX_BITMAP_DIMENSION
 ) {
 
     private val _uiState = MutableStateFlow(ViewerUiState())
@@ -34,6 +38,8 @@ class ViewerViewModel(
     private var currentOrderPosition: Int = -1
     private var activeReaderPath: String? = null
     private var activeReader: DesktopArchiveReader? = null
+    private var imageLoadJob: Job? = null
+    private var imageLoadRequestId: Long = 0L
 
     init {
         restorePersistedState()
@@ -90,6 +96,7 @@ class ViewerViewModel(
 
     fun close() {
         stopSlideshowLoop()
+        cancelImageLoad()
         closeActiveReader()
     }
 
@@ -124,7 +131,7 @@ class ViewerViewModel(
             }.onFailure { throwable ->
                 closeActiveReader()
                 loadingPath = null
-                clearContentWithError(throwable.message ?: "Failed to open archive")
+                clearContentWithError(errorMessageFor(throwable))
                 stopSlideshowLoop()
             }
         }
@@ -142,12 +149,15 @@ class ViewerViewModel(
     }
 
     private fun clearContentWithError(message: String, stopPlayback: Boolean = true) {
+        imageEntries = emptyList()
+        cancelImageLoad()
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             isPlaying = if (stopPlayback) false else _uiState.value.isPlaying,
             currentIndex = 0,
             totalCount = 0,
             currentEntry = null,
+            bitmap = null,
             errorMessage = message
         )
         syncPersistenceFromState()
@@ -169,14 +179,39 @@ class ViewerViewModel(
     private fun showEntry(index: Int) {
         if (imageEntries.isEmpty()) return
 
+        val entry = imageEntries[index]
+        val requestId = nextImageLoadRequestId()
+        cancelImageLoad()
         _uiState.value = _uiState.value.copy(
             isLoading = false,
             currentIndex = index,
             totalCount = imageEntries.size,
-            currentEntry = imageEntries[index],
+            currentEntry = entry,
             errorMessage = null
         )
         syncPersistenceFromState()
+
+        imageLoadJob = scope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val reader = ensureActiveReader(entry.archivePath.toString())
+                    reader.openEntryStream(entry).use { stream ->
+                        imageDecoder.decode(stream, maxDimension = maxBitmapDimension)
+                    }
+                }
+            }
+
+            result.onSuccess { bitmap ->
+                if (!isImageLoadCurrent(requestId)) return@onSuccess
+                _uiState.value = _uiState.value.copy(bitmap = bitmap, errorMessage = null)
+            }.onFailure { throwable ->
+                if (throwable is CancellationException || !isImageLoadCurrent(requestId)) return@onFailure
+                _uiState.value = _uiState.value.copy(
+                    bitmap = null,
+                    errorMessage = errorMessageFor(throwable)
+                )
+            }
+        }
     }
 
     private suspend fun ensureActiveReader(path: String): DesktopArchiveReader {
@@ -275,6 +310,18 @@ class ViewerViewModel(
         slideshowJob = null
     }
 
+    private fun cancelImageLoad() {
+        imageLoadJob?.cancel()
+        imageLoadJob = null
+    }
+
+    private fun nextImageLoadRequestId(): Long {
+        imageLoadRequestId += 1L
+        return imageLoadRequestId
+    }
+
+    private fun isImageLoadCurrent(requestId: Long): Boolean = imageLoadRequestId == requestId
+
     private fun restorePersistedState() {
         val restored = persistence.load() ?: return
         val clampedIntervalMs = ViewerStatePolicy
@@ -293,5 +340,36 @@ class ViewerViewModel(
         if (!restored.archivePath.isNullOrBlank()) {
             loadArchive(restored.archivePath, resetPosition = false)
         }
+    }
+
+    private fun errorMessageFor(throwable: Throwable): String {
+        return when {
+            throwable is IllegalArgumentException && throwable.message?.contains("Unsupported archive type") == true -> {
+                "Unsupported archive format."
+            }
+
+            hasCause(throwable) { it is SecurityException || it is java.nio.file.AccessDeniedException } -> {
+                "Permission denied or unable to read archive."
+            }
+
+            hasCause(throwable) { it is IOException } -> {
+                "Archive appears to be corrupt."
+            }
+
+            else -> "Unable to open archive."
+        }
+    }
+
+    private fun hasCause(throwable: Throwable, predicate: (Throwable) -> Boolean): Boolean {
+        var current: Throwable? = throwable
+        while (current != null) {
+            if (predicate(current)) return true
+            current = current.cause
+        }
+        return false
+    }
+
+    companion object {
+        private const val DEFAULT_MAX_BITMAP_DIMENSION = 4096
     }
 }
