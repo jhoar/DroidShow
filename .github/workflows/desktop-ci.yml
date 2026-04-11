@@ -33,6 +33,16 @@ jobs:
         run: |
           gradle --no-daemon :desktopApp-policy:test :desktopApp-archive:test
 
+      - name: Upload desktop shared test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-shared-test-reports
+          path: |
+            desktopApp-policy/build/reports/tests/test
+            desktopApp-archive/build/reports/tests/test
+          if-no-files-found: warn
+
   package-desktop:
     name: Package desktop app (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
@@ -47,11 +57,13 @@ jobs:
             package_task: :desktopApp:packageReleasePkg
             artifact_name: desktop-macos-pkg
             artifact_path: desktopApp/build/compose/binaries/main-release/pkg/*.pkg
+            artifact_dir: desktopApp/build/compose/binaries/main-release/pkg
           - os: windows-latest
             label: Windows MSI
             package_task: :desktopApp:packageReleaseMsi
             artifact_name: desktop-windows-msi
             artifact_path: desktopApp/build/compose/binaries/main-release/msi/*.msi
+            artifact_dir: desktopApp/build/compose/binaries/main-release/msi
 
     steps:
       - name: Check out repository
@@ -68,9 +80,20 @@ jobs:
         with:
           gradle-version: 8.7
 
+      - name: Compile desktop modules
+        shell: bash
+        run: gradle --no-daemon :desktopApp-ui:compileKotlin :desktopApp-viewer:compileKotlin
+
       - name: Build package
         shell: bash
         run: gradle --no-daemon ${{ matrix.package_task }}
+
+      - name: List package output directory
+        if: always()
+        shell: bash
+        run: |
+          echo "Inspecting package output directory: ${{ matrix.artifact_dir }}"
+          ls -la "${{ matrix.artifact_dir }}" || true
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
