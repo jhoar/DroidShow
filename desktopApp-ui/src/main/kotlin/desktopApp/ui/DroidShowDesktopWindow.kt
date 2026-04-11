@@ -211,13 +211,8 @@ private fun buildStatusText(state: ViewerUiState): String {
     val archiveName = state.archivePath
         ?.let(::displayNameForPath)
         ?: "No archive opened"
-    val imageName = state.currentEntry
-        ?.entryPath
-        ?.let(::displayNameForPath)
-
     val base = if (state.totalCount > 0) {
-        val indexText = "${state.currentIndex + 1}/${state.totalCount}"
-        listOfNotNull(indexText, archiveName, imageName).joinToString(" • ")
+        "${state.currentIndex + 1}/${state.totalCount} • $archiveName"
     } else {
         archiveName
     }
