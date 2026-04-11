@@ -18,7 +18,8 @@ interface ViewerPersistence {
 }
 
 class PreferencesViewerPersistence(
-    private val preferences: Preferences = Preferences.userRoot().node("showlio/desktop/viewer")
+    private val preferences: Preferences = Preferences.userRoot().node("showlio/desktop/viewer"),
+    private val platform: DesktopPlatform = DesktopPlatform.current()
 ) : ViewerPersistence {
 
     override fun load(): ViewerPersistedState? {
@@ -33,9 +34,9 @@ class PreferencesViewerPersistence(
             ?: ViewerDisplayMode.SEQUENTIAL
 
         return ViewerPersistedState(
-            archivePath = archivePath,
+            archivePath = platform.persistedArchivePath(archivePath),
             currentIndex = currentIndex,
-            isPlaying = isPlaying,
+            isPlaying = platform.persistedPlaybackState(isPlaying),
             slideshowIntervalMs = slideshowIntervalMs,
             displayMode = displayMode
         )
@@ -43,15 +44,41 @@ class PreferencesViewerPersistence(
 
     override fun save(state: ViewerPersistedState) {
         preferences.putBoolean(KEY_HAS_STATE, true)
-        if (state.archivePath.isNullOrBlank()) {
+        val persistedArchivePath = platform.persistedArchivePath(state.archivePath)
+        if (persistedArchivePath.isNullOrBlank()) {
             preferences.remove(KEY_ARCHIVE_PATH)
         } else {
-            preferences.put(KEY_ARCHIVE_PATH, state.archivePath)
+            preferences.put(KEY_ARCHIVE_PATH, persistedArchivePath)
         }
         preferences.putInt(KEY_CURRENT_INDEX, state.currentIndex)
-        preferences.putBoolean(KEY_IS_PLAYING, state.isPlaying)
+        preferences.putBoolean(KEY_IS_PLAYING, platform.persistedPlaybackState(state.isPlaying))
         preferences.putLong(KEY_SLIDESHOW_INTERVAL_MS, state.slideshowIntervalMs)
         preferences.put(KEY_DISPLAY_MODE, state.displayMode.name)
+    }
+
+    interface DesktopPlatform {
+        fun persistedArchivePath(path: String?): String?
+
+        fun persistedPlaybackState(isPlaying: Boolean): Boolean
+
+        companion object {
+            fun current(): DesktopPlatform {
+                val osName = System.getProperty("os.name").orEmpty()
+                return if (osName.startsWith("Windows", ignoreCase = true)) Windows else Default
+            }
+        }
+    }
+
+    private data object Default : DesktopPlatform {
+        override fun persistedArchivePath(path: String?): String? = path
+
+        override fun persistedPlaybackState(isPlaying: Boolean): Boolean = isPlaying
+    }
+
+    private data object Windows : DesktopPlatform {
+        override fun persistedArchivePath(path: String?): String? = null
+
+        override fun persistedPlaybackState(isPlaying: Boolean): Boolean = false
     }
 
     private companion object {
