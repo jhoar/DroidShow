@@ -1,6 +1,6 @@
-package showlio.app.ui.viewer
+package desktopApp.policy
 
-internal object ViewerStatePolicy {
+object ViewerStatePolicy {
     fun shouldStartArchiveLoad(
         requestedUri: String?,
         currentUri: String?,

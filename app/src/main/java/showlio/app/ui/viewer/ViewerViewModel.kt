@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
+import desktopApp.policy.ViewerIndexSelector
+import desktopApp.policy.ViewerStatePolicy
 
 class ViewerViewModel(
     application: Application,

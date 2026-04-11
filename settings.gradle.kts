@@ -3,6 +3,7 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
 
@@ -11,8 +12,14 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
 
 rootProject.name = "DroidShow"
 include(":app")
+include(":desktopApp")
+include(":desktopApp-ui")
+include(":desktopApp-viewer")
+include(":desktopApp-archive")
+include(":desktopApp-policy")

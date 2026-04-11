@@ -1,6 +1,6 @@
-package showlio.app.ui.viewer
+package desktopApp.policy
 
-internal object ViewerIndexSelector {
+object ViewerIndexSelector {
 
     data class RandomTraversalState(
         val order: IntArray,

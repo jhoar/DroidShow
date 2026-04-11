@@ -1,14 +1,14 @@
-package showlio.app.archive
+package desktopApp.archive
 
 import java.util.Locale
 
-internal enum class ArchiveType {
+enum class ArchiveKind {
     ZIP,
     RAR,
     SEVEN_Z
 }
 
-internal object ArchiveTypeResolver {
+object ArchiveTypeResolver {
     private val zipExtensions = setOf("zip", "cbz")
     private val rarExtensions = setOf("rar", "cbr")
     private val sevenZExtensions = setOf("7z", "cb7")
@@ -34,7 +34,7 @@ internal object ArchiveTypeResolver {
         "application/x-cb7"
     )
 
-    fun resolve(fileName: String?, mimeType: String?): ArchiveType? {
+    fun resolve(fileName: String?, mimeType: String?): ArchiveKind? {
         val extension = fileName
             ?.substringAfterLast('.', missingDelimiterValue = "")
             ?.lowercase(Locale.US)
@@ -42,9 +42,9 @@ internal object ArchiveTypeResolver {
         val normalizedMime = mimeType?.lowercase(Locale.US)
 
         return when {
-            extension in zipExtensions || normalizedMime in zipMimeTypes -> ArchiveType.ZIP
-            extension in rarExtensions || normalizedMime in rarMimeTypes -> ArchiveType.RAR
-            extension in sevenZExtensions || normalizedMime in sevenZMimeTypes -> ArchiveType.SEVEN_Z
+            extension in zipExtensions || normalizedMime in zipMimeTypes -> ArchiveKind.ZIP
+            extension in rarExtensions || normalizedMime in rarMimeTypes -> ArchiveKind.RAR
+            extension in sevenZExtensions || normalizedMime in sevenZMimeTypes -> ArchiveKind.SEVEN_Z
             else -> null
         }
     }
