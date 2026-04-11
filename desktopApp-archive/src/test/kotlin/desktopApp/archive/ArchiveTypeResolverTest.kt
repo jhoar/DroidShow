@@ -1,7 +1,5 @@
-package showlio.app.archive
+package desktopApp.archive
 
-import desktopApp.archive.ArchiveKind
-import desktopApp.archive.ArchiveTypeResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

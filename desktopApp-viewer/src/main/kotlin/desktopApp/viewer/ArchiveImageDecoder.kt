@@ -4,9 +4,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import java.io.IOException
 import java.io.InputStream
+import kotlin.io.use
 import javax.imageio.ImageIO
 import javax.imageio.ImageReadParam
-import javax.imageio.stream.ImageInputStream
 
 interface ArchiveImageDecoder {
     fun decode(stream: InputStream, maxDimension: Int): ImageBitmap
@@ -16,10 +16,10 @@ class DefaultArchiveImageDecoder : ArchiveImageDecoder {
     override fun decode(stream: InputStream, maxDimension: Int): ImageBitmap {
         val imageStream = ImageIO.createImageInputStream(stream)
             ?: throw IOException("Unable to create image input stream")
-        imageStream.use { input ->
+        return imageStream.use { input ->
             val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull()
                 ?: throw IOException("Unsupported image format")
-            reader.use {
+            try {
                 reader.input = input
                 val width = reader.getWidth(0)
                 val height = reader.getHeight(0)
@@ -31,7 +31,9 @@ class DefaultArchiveImageDecoder : ArchiveImageDecoder {
                 }
                 val image = reader.read(0, params)
                     ?: throw IOException("Failed to decode image")
-                return image.toComposeImageBitmap()
+                image.toComposeImageBitmap()
+            } finally {
+                reader.dispose()
             }
         }
     }
@@ -41,13 +43,5 @@ class DefaultArchiveImageDecoder : ArchiveImageDecoder {
         val longest = maxOf(width, height)
         if (longest <= maxDimension) return 1
         return (longest.toDouble() / maxDimension.toDouble()).toInt().coerceAtLeast(1)
-    }
-}
-
-private inline fun <T : AutoCloseable?, R> T.use(block: (T) -> R): R {
-    try {
-        return block(this)
-    } finally {
-        this?.close()
     }
 }
