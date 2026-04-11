@@ -1,5 +1,6 @@
 plugins {
     id("org.jetbrains.kotlin.jvm")
+    id("org.jetbrains.compose")
 }
 
 kotlin {
@@ -7,6 +8,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(compose.desktop.currentOs)
     implementation(project(":desktopApp-policy"))
     implementation(project(":desktopApp-archive"))
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
