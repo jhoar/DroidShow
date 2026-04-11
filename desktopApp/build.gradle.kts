@@ -33,9 +33,14 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
-            packageName = "DroidShowDesktop"
+            packageName = "droidshow-desktop"
             packageVersion = "1.0.0"
             description = "Desktop archive viewer for DroidShow"
+            vendor = "DroidShow"
+
+            macOS {
+                bundleID = "io.github.jhoar.droidshow.desktop"
+            }
         }
     }
 }
