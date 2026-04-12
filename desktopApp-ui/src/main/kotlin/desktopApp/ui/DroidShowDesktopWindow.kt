@@ -211,8 +211,16 @@ private fun buildStatusText(state: ViewerUiState): String {
     val archiveName = state.archivePath
         ?.let(::displayNameForPath)
         ?: "No archive opened"
+    val currentFileName = state.currentEntry
+        ?.entryPath
+        ?.let(::displayNameForPath)
     val base = if (state.totalCount > 0) {
-        "${state.currentIndex + 1}/${state.totalCount} • $archiveName"
+        buildString {
+            append("${state.currentIndex + 1}/${state.totalCount} • $archiveName")
+            if (!currentFileName.isNullOrBlank()) {
+                append(" • $currentFileName")
+            }
+        }
     } else {
         archiveName
     }
