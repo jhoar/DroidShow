@@ -25,6 +25,10 @@ class DesktopViewerController(
         viewModel.setDisplayMode(displayMode)
     }
 
+    fun setAutoplayOnLoad(enabled: Boolean) {
+        viewModel.setAutoplayOnLoad(enabled)
+    }
+
     fun advance() {
         viewModel.advanceOnce()
     }

@@ -95,6 +95,7 @@ class ViewerViewModelTest {
                 archivePath = "/tmp/a.cbz",
                 currentIndex = 2,
                 isPlaying = false,
+                autoplayOnLoad = true,
                 slideshowIntervalMs = 90_000L,
                 displayMode = ViewerDisplayMode.SEQUENTIAL
             )
@@ -105,7 +106,19 @@ class ViewerViewModelTest {
 
         assertEquals("/tmp/a.cbz", vm.uiState.value.archivePath)
         assertEquals(2, vm.uiState.value.currentIndex)
+        assertTrue(vm.uiState.value.autoplayOnLoad)
         assertEquals(30_000L, vm.uiState.value.slideshowIntervalMs)
+        vm.close()
+    }
+
+    @Test
+    fun autoplayStartsPlaybackWhenArchiveLoadCompletes() = runBlocking {
+        val vm = createViewModel()
+        vm.setAutoplayOnLoad(true)
+        vm.loadArchiveIfNeeded("/tmp/a.cbz")
+        delay(40)
+
+        assertTrue(vm.uiState.value.isPlaying)
         vm.close()
     }
 

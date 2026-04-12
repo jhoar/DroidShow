@@ -63,6 +63,13 @@
                     android:layout_height="wrap_content"
                     android:text="@string/slideshow_display_mode_random" />
             </RadioGroup>
+
+            <CheckBox
+                android:id="@+id/autoplayOnLoadCheckbox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/slideshow_autoplay_on_load_setting" />
         </LinearLayout>
 
     </LinearLayout>

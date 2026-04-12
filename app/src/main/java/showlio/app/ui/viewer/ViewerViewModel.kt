@@ -95,6 +95,13 @@ class ViewerViewModel(
         restartSlideshowLoopIfNeeded()
     }
 
+    fun setAutoplayOnLoad(enabled: Boolean) {
+        if (_uiState.value.autoplayOnLoad == enabled) return
+
+        _uiState.value = _uiState.value.copy(autoplayOnLoad = enabled)
+        savedStateHandle[KEY_AUTOPLAY_ON_LOAD] = enabled
+    }
+
     private fun loadArchive(uri: Uri, resetPosition: Boolean) {
         loadingUri = uri
         updateLoadingState(uri)
@@ -130,6 +137,9 @@ class ViewerViewModel(
                 )
                 rebuildDisplayOrder(restoredIndex)
                 showEntry(restoredIndex)
+                if (_uiState.value.autoplayOnLoad && !_uiState.value.isPlaying) {
+                    setPlaying(playing = true, restartLoop = false)
+                }
                 restartSlideshowLoopIfNeeded()
             }.onFailure { throwable ->
                 closeActiveReader()
@@ -176,6 +186,7 @@ class ViewerViewModel(
         savedStateHandle[KEY_CURRENT_INDEX] = state.currentIndex
         savedStateHandle[KEY_SLIDESHOW_INTERVAL_MS] = state.slideshowIntervalMs
         savedStateHandle[KEY_DISPLAY_MODE] = state.displayMode.name
+        savedStateHandle[KEY_AUTOPLAY_ON_LOAD] = state.autoplayOnLoad
     }
 
     private suspend fun showEntry(index: Int) {
@@ -323,12 +334,14 @@ class ViewerViewModel(
         val displayMode = savedStateHandle.get<String>(KEY_DISPLAY_MODE)
             ?.let { runCatching { ViewerUiState.DisplayMode.valueOf(it) }.getOrNull() }
             ?: ViewerUiState.DisplayMode.SEQUENTIAL
+        val autoplayOnLoad = savedStateHandle.get<Boolean>(KEY_AUTOPLAY_ON_LOAD) ?: false
 
         if (uriString.isNullOrBlank()) {
             _uiState.value = _uiState.value.copy(
                 isPlaying = isPlaying,
                 slideshowIntervalMs = intervalMs,
-                displayMode = displayMode
+                displayMode = displayMode,
+                autoplayOnLoad = autoplayOnLoad
             )
             return
         }
@@ -339,7 +352,8 @@ class ViewerViewModel(
             isLoading = true,
             isPlaying = isPlaying,
             slideshowIntervalMs = intervalMs,
-            displayMode = displayMode
+            displayMode = displayMode,
+            autoplayOnLoad = autoplayOnLoad
         )
         loadArchive(restoredUri, resetPosition = false)
     }
@@ -353,6 +367,7 @@ class ViewerViewModel(
         private const val KEY_IS_PLAYING = "is_playing"
         private const val KEY_SLIDESHOW_INTERVAL_MS = "slideshow_interval_ms"
         private const val KEY_DISPLAY_MODE = "display_mode"
+        private const val KEY_AUTOPLAY_ON_LOAD = "autoplay_on_load"
     }
 
     private fun errorMessageFor(throwable: Throwable): String {

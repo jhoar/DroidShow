@@ -12,6 +12,7 @@
     <string name="slideshow_display_mode_setting">Display order</string>
     <string name="slideshow_display_mode_sequential">Sequential</string>
     <string name="slideshow_display_mode_random">Random</string>
+    <string name="slideshow_autoplay_on_load_setting">Autoplay slideshow after archive loads</string>
     <string name="slideshow_image">Slideshow image</string>
     <string name="current_image">Current image</string>
     <string name="slideshow_position">Image %1$d of %2$d</string>

@@ -15,6 +15,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
+import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.RadioButton
 import androidx.compose.material.Slider
@@ -119,10 +120,12 @@ fun DroidShowDesktopWindow(
                 SettingsDialog(
                     initialIntervalSeconds = (state.slideshowIntervalMs / 1_000L).toInt(),
                     initialDisplayMode = state.displayMode,
+                    initialAutoplayOnLoad = state.autoplayOnLoad,
                     onDismiss = { showSettings = false },
-                    onApply = { intervalSeconds, displayMode ->
+                    onApply = { intervalSeconds, displayMode, autoplayOnLoad ->
                         controller.setSlideshowIntervalSeconds(intervalSeconds)
                         controller.setDisplayMode(displayMode)
+                        controller.setAutoplayOnLoad(autoplayOnLoad)
                         showSettings = false
                     }
                 )
@@ -135,11 +138,13 @@ fun DroidShowDesktopWindow(
 private fun SettingsDialog(
     initialIntervalSeconds: Int,
     initialDisplayMode: ViewerDisplayMode,
+    initialAutoplayOnLoad: Boolean,
     onDismiss: () -> Unit,
-    onApply: (Int, ViewerDisplayMode) -> Unit
+    onApply: (Int, ViewerDisplayMode, Boolean) -> Unit
 ) {
     var intervalSeconds by remember(initialIntervalSeconds) { mutableFloatStateOf(initialIntervalSeconds.toFloat()) }
     var selectedMode by remember(initialDisplayMode) { mutableStateOf(initialDisplayMode) }
+    var autoplayOnLoad by remember(initialAutoplayOnLoad) { mutableStateOf(initialAutoplayOnLoad) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -169,10 +174,22 @@ private fun SettingsDialog(
                     selected = selectedMode == ViewerDisplayMode.RANDOM,
                     onSelected = { selectedMode = ViewerDisplayMode.RANDOM }
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = autoplayOnLoad,
+                        onCheckedChange = { autoplayOnLoad = it }
+                    )
+                    Text("Autoplay after archive loads")
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onApply(intervalSeconds.toInt(), selectedMode) }) {
+            TextButton(onClick = { onApply(intervalSeconds.toInt(), selectedMode, autoplayOnLoad) }) {
                 Text("Apply")
             }
         },
