@@ -10,5 +10,6 @@ kotlin {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(project(":desktopApp-viewer"))
+    implementation(project(":desktopApp-archive"))
     implementation(project(":desktopApp-policy"))
 }

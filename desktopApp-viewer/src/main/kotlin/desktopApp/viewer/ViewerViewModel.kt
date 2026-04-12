@@ -88,6 +88,12 @@ class ViewerViewModel(
         restartSlideshowLoopIfNeeded()
     }
 
+    fun setAutoplayOnLoad(enabled: Boolean) {
+        if (_uiState.value.autoplayOnLoad == enabled) return
+        _uiState.value = _uiState.value.copy(autoplayOnLoad = enabled)
+        syncPersistenceFromState()
+    }
+
     fun advanceOnce() {
         if (imageEntries.isEmpty()) return
         val nextIndex = nextIndexForMode(_uiState.value.currentIndex)
@@ -127,6 +133,9 @@ class ViewerViewModel(
                 val restoredIndex = ViewerStatePolicy.clampIndex(_uiState.value.currentIndex, entries.lastIndex)
                 rebuildDisplayOrder(restoredIndex)
                 showEntry(restoredIndex)
+                if (_uiState.value.autoplayOnLoad && !_uiState.value.isPlaying) {
+                    setPlaying(playing = true, restartLoop = false)
+                }
                 restartSlideshowLoopIfNeeded()
             }.onFailure { throwable ->
                 closeActiveReader()
@@ -170,6 +179,7 @@ class ViewerViewModel(
                 archivePath = state.archivePath,
                 currentIndex = state.currentIndex,
                 isPlaying = state.isPlaying,
+                autoplayOnLoad = state.autoplayOnLoad,
                 slideshowIntervalMs = state.slideshowIntervalMs,
                 displayMode = state.displayMode
             )
@@ -332,6 +342,7 @@ class ViewerViewModel(
             archivePath = restored.archivePath,
             currentIndex = restored.currentIndex,
             isPlaying = restored.isPlaying,
+            autoplayOnLoad = restored.autoplayOnLoad,
             slideshowIntervalMs = clampedIntervalMs,
             displayMode = restored.displayMode,
             isLoading = !restored.archivePath.isNullOrBlank()

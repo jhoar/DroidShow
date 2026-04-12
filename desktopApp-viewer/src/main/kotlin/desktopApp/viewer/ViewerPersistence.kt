@@ -7,6 +7,7 @@ data class ViewerPersistedState(
     val archivePath: String?,
     val currentIndex: Int,
     val isPlaying: Boolean,
+    val autoplayOnLoad: Boolean,
     val slideshowIntervalMs: Long,
     val displayMode: ViewerDisplayMode
 )
@@ -28,6 +29,7 @@ class PreferencesViewerPersistence(
         val archivePath = preferences.get(KEY_ARCHIVE_PATH, null)
         val currentIndex = preferences.getInt(KEY_CURRENT_INDEX, 0)
         val isPlaying = preferences.getBoolean(KEY_IS_PLAYING, false)
+        val autoplayOnLoad = preferences.getBoolean(KEY_AUTOPLAY_ON_LOAD, false)
         val slideshowIntervalMs = preferences.getLong(KEY_SLIDESHOW_INTERVAL_MS, DEFAULT_SLIDESHOW_INTERVAL_MS)
         val displayMode = preferences.get(KEY_DISPLAY_MODE, ViewerDisplayMode.SEQUENTIAL.name)
             ?.let { runCatching { ViewerDisplayMode.valueOf(it) }.getOrNull() }
@@ -37,6 +39,7 @@ class PreferencesViewerPersistence(
             archivePath = platform.persistedArchivePath(archivePath),
             currentIndex = currentIndex,
             isPlaying = platform.persistedPlaybackState(isPlaying),
+            autoplayOnLoad = autoplayOnLoad,
             slideshowIntervalMs = slideshowIntervalMs,
             displayMode = displayMode
         )
@@ -52,6 +55,7 @@ class PreferencesViewerPersistence(
         }
         preferences.putInt(KEY_CURRENT_INDEX, state.currentIndex)
         preferences.putBoolean(KEY_IS_PLAYING, platform.persistedPlaybackState(state.isPlaying))
+        preferences.putBoolean(KEY_AUTOPLAY_ON_LOAD, state.autoplayOnLoad)
         preferences.putLong(KEY_SLIDESHOW_INTERVAL_MS, state.slideshowIntervalMs)
         preferences.put(KEY_DISPLAY_MODE, state.displayMode.name)
     }
@@ -86,6 +90,7 @@ class PreferencesViewerPersistence(
         const val KEY_ARCHIVE_PATH = "archive_path"
         const val KEY_CURRENT_INDEX = "current_index"
         const val KEY_IS_PLAYING = "is_playing"
+        const val KEY_AUTOPLAY_ON_LOAD = "autoplay_on_load"
         const val KEY_SLIDESHOW_INTERVAL_MS = "slideshow_interval_ms"
         const val KEY_DISPLAY_MODE = "display_mode"
         const val DEFAULT_SLIDESHOW_INTERVAL_MS = 3_000L

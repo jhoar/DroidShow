@@ -23,6 +23,7 @@ class ViewerPersistenceTest {
                 archivePath = "C:/images/sample.cbz",
                 currentIndex = 3,
                 isPlaying = true,
+                autoplayOnLoad = true,
                 slideshowIntervalMs = 5_000L,
                 displayMode = ViewerDisplayMode.RANDOM
             )
@@ -34,6 +35,7 @@ class ViewerPersistenceTest {
         val restored = persistence.load()
         assertNull(restored?.archivePath)
         assertFalse(restored?.isPlaying ?: true)
+        assertEquals(true, restored?.autoplayOnLoad)
         assertEquals(3, restored?.currentIndex)
         assertEquals(5_000L, restored?.slideshowIntervalMs)
         assertEquals(ViewerDisplayMode.RANDOM, restored?.displayMode)
@@ -54,6 +56,7 @@ class ViewerPersistenceTest {
                 archivePath = "/tmp/sample.cbz",
                 currentIndex = 1,
                 isPlaying = true,
+                autoplayOnLoad = true,
                 slideshowIntervalMs = 4_000L,
                 displayMode = ViewerDisplayMode.SEQUENTIAL
             )
@@ -62,6 +65,7 @@ class ViewerPersistenceTest {
         val restored = persistence.load()
         assertEquals("/tmp/sample.cbz", restored?.archivePath)
         assertEquals(true, restored?.isPlaying)
+        assertEquals(true, restored?.autoplayOnLoad)
 
         preferences.removeNode()
     }
