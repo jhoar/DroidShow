@@ -2,11 +2,13 @@ package desktopApp.viewer
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import com.luciad.imageio.webp.WebPImageReaderSpi
 import java.io.IOException
 import java.io.InputStream
 import kotlin.io.use
 import javax.imageio.ImageIO
 import javax.imageio.ImageReadParam
+import javax.imageio.spi.IIORegistry
 
 interface ArchiveImageDecoder {
     fun decode(stream: InputStream, maxDimension: Int): ImageBitmap
@@ -14,7 +16,7 @@ interface ArchiveImageDecoder {
 
 class DefaultArchiveImageDecoder : ArchiveImageDecoder {
     init {
-        ImageIO.scanForPlugins()
+        ensureWebpReaderRegistered()
     }
 
     override fun decode(stream: InputStream, maxDimension: Int): ImageBitmap {
@@ -47,5 +49,26 @@ class DefaultArchiveImageDecoder : ArchiveImageDecoder {
         val longest = maxOf(width, height)
         if (longest <= maxDimension) return 1
         return (longest.toDouble() / maxDimension.toDouble()).toInt().coerceAtLeast(1)
+    }
+
+    private fun ensureWebpReaderRegistered() {
+        if (webpReaderRegistered) return
+        synchronized(registrationLock) {
+            if (webpReaderRegistered) return
+
+            runCatching {
+                val registry = IIORegistry.getDefaultInstance()
+                if (registry.getServiceProviderByClass(WebPImageReaderSpi::class.java) == null) {
+                    registry.registerServiceProvider(WebPImageReaderSpi())
+                }
+                webpReaderRegistered = true
+            }
+        }
+    }
+
+    companion object {
+        @Volatile
+        private var webpReaderRegistered: Boolean = false
+        private val registrationLock = Any()
     }
 }
