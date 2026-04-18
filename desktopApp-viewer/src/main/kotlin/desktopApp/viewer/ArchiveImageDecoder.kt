@@ -13,6 +13,10 @@ interface ArchiveImageDecoder {
 }
 
 class DefaultArchiveImageDecoder : ArchiveImageDecoder {
+    init {
+        ImageIO.scanForPlugins()
+    }
+
     override fun decode(stream: InputStream, maxDimension: Int): ImageBitmap {
         val imageStream = ImageIO.createImageInputStream(stream)
             ?: throw IOException("Unable to create image input stream")
