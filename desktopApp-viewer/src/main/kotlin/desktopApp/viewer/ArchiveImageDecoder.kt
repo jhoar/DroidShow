@@ -1,74 +1,48 @@
 package desktopApp.viewer
 
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.toComposeImageBitmap
-import com.luciad.imageio.webp.WebPImageReaderSpi
+import androidx.compose.ui.graphics.asImageBitmap
 import java.io.IOException
 import java.io.InputStream
-import kotlin.io.use
-import javax.imageio.ImageIO
-import javax.imageio.ImageReadParam
-import javax.imageio.spi.IIORegistry
+import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.Image as SkiaImage
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.SamplingMode
+import org.jetbrains.skia.Surface
 
 interface ArchiveImageDecoder {
     fun decode(stream: InputStream, maxDimension: Int): ImageBitmap
 }
 
 class DefaultArchiveImageDecoder : ArchiveImageDecoder {
-    init {
-        ensureWebpReaderRegistered()
-    }
-
     override fun decode(stream: InputStream, maxDimension: Int): ImageBitmap {
-        val imageStream = ImageIO.createImageInputStream(stream)
-            ?: throw IOException("Unable to create image input stream")
-        return imageStream.use { input ->
-            val reader = ImageIO.getImageReaders(input).asSequence().firstOrNull()
-                ?: throw IOException("Unsupported image format")
-            try {
-                reader.input = input
-                val width = reader.getWidth(0)
-                val height = reader.getHeight(0)
-                val sample = computeSubsampling(width, height, maxDimension)
-                val params = ImageReadParam().apply {
-                    if (sample > 1) {
-                        setSourceSubsampling(sample, sample, 0, 0)
-                    }
-                }
-                val image = reader.read(0, params)
-                    ?: throw IOException("Failed to decode image")
-                image.toComposeImageBitmap()
-            } finally {
-                reader.dispose()
-            }
+        val bytes = stream.readBytes()
+        val image = try {
+            SkiaImage.makeFromEncoded(bytes)
+        } catch (e: Exception) {
+            throw IOException("Unsupported image format", e)
         }
-    }
-
-    private fun computeSubsampling(width: Int, height: Int, maxDimension: Int): Int {
-        if (maxDimension <= 0) return 1
-        val longest = maxOf(width, height)
-        if (longest <= maxDimension) return 1
-        return (longest.toDouble() / maxDimension.toDouble()).toInt().coerceAtLeast(1)
-    }
-
-    private fun ensureWebpReaderRegistered() {
-        if (webpReaderRegistered) return
-        synchronized(registrationLock) {
-            if (webpReaderRegistered) return
-
-            runCatching {
-                val registry = IIORegistry.getDefaultInstance()
-                if (registry.getServiceProviderByClass(WebPImageReaderSpi::class.java) == null) {
-                    registry.registerServiceProvider(WebPImageReaderSpi())
-                }
-                webpReaderRegistered = true
-            }
+        val (targetW, targetH) = computeTargetSize(image.width, image.height, maxDimension)
+        val source = if (targetW == image.width && targetH == image.height) {
+            image
+        } else {
+            val surface = Surface.makeRasterN32Premul(targetW, targetH)
+            surface.canvas.drawImageRect(
+                image,
+                Rect.makeXYWH(0f, 0f, targetW.toFloat(), targetH.toFloat()),
+                SamplingMode.LINEAR
+            )
+            surface.makeImageSnapshot()
         }
+        val bitmap = Bitmap()
+        bitmap.allocN32Pixels(source.width, source.height)
+        source.readPixels(bitmap)
+        return bitmap.asImageBitmap()
     }
 
-    companion object {
-        @Volatile
-        private var webpReaderRegistered: Boolean = false
-        private val registrationLock = Any()
+    private fun computeTargetSize(width: Int, height: Int, maxDimension: Int): Pair<Int, Int> {
+        if (maxDimension <= 0 || maxOf(width, height) <= maxDimension) return Pair(width, height)
+        val scale = maxDimension.toDouble() / maxOf(width, height)
+        return Pair((width * scale).toInt().coerceAtLeast(1), (height * scale).toInt().coerceAtLeast(1))
     }
 }
