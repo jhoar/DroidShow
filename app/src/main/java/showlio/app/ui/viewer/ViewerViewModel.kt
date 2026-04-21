@@ -2,7 +2,9 @@ package showlio.app.ui.viewer
 
 import android.app.Application
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -11,6 +13,8 @@ import showlio.app.archive.ArchiveEntryRef
 import showlio.app.archive.ArchiveReader
 import showlio.app.archive.ArchiveReaderFactory
 import java.io.IOException
+import java.io.InputStream
+import java.nio.ByteBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -196,7 +200,7 @@ class ViewerViewModel(
         val bitmap = withContext(Dispatchers.IO) {
             val reader = ensureActiveReader(entry.archiveUri)
             reader.openEntryStream(entry).use { stream ->
-                BitmapFactory.decodeStream(stream)
+                decodeBitmap(stream)
             }
         }
 
@@ -209,6 +213,19 @@ class ViewerViewModel(
         )
         savedStateHandle[KEY_CURRENT_INDEX] = index
     }
+
+    private fun decodeBitmap(stream: InputStream) =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val encodedBytes = stream.readBytes()
+            if (encodedBytes.isEmpty()) {
+                null
+            } else {
+                val source = ImageDecoder.createSource(ByteBuffer.wrap(encodedBytes))
+                ImageDecoder.decodeBitmap(source)
+            }
+        } else {
+            BitmapFactory.decodeStream(stream)
+        }
 
     private suspend fun ensureActiveReader(uri: Uri): ArchiveReader {
         val currentReader = activeReader
