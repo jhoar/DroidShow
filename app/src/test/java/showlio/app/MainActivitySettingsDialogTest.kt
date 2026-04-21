@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.widget.NumberPicker
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -64,6 +65,12 @@ class MainActivitySettingsDialogTest {
         val mode = activity.invokeModeFromSelection(binding)
 
         assertEquals(ViewerUiState.DisplayMode.SEQUENTIAL, mode)
+    }
+
+    @Test
+    fun `settings dialog binding includes autoplay toggle`() {
+        val binding = DialogSettingsBinding.inflate(LayoutInflater.from(themedContext()))
+        assertNotNull(binding.autoplayOnLoadCheckbox)
     }
 
     private fun themedContext() = ContextThemeWrapper(

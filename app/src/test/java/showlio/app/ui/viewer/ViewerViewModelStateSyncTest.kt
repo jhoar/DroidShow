@@ -18,6 +18,7 @@ class ViewerViewModelStateSyncTest {
     @Test
     fun `setPlaying updates ui state and saved state without restarting loop when disabled`() {
         val (viewModel, savedStateHandle) = createViewModel()
+        viewModel.setAutoplayOnLoad(true)
 
         viewModel.invokeSetPlaying(playing = true, restartLoop = false)
 
@@ -31,6 +32,10 @@ class ViewerViewModelStateSyncTest {
         assertEquals(
             viewModel.uiState.value.displayMode.name,
             savedStateHandle.get<String>("display_mode")
+        )
+        assertEquals(
+            viewModel.uiState.value.autoplayOnLoad,
+            savedStateHandle.get<Boolean>("autoplay_on_load")
         )
     }
 
@@ -53,6 +58,10 @@ class ViewerViewModelStateSyncTest {
         assertEquals(
             viewModel.uiState.value.displayMode.name,
             savedStateHandle.get<String>("display_mode")
+        )
+        assertEquals(
+            viewModel.uiState.value.autoplayOnLoad,
+            savedStateHandle.get<Boolean>("autoplay_on_load")
         )
     }
 
@@ -81,6 +90,21 @@ class ViewerViewModelStateSyncTest {
             viewModel.uiState.value.displayMode.name,
             savedStateHandle.get<String>("display_mode")
         )
+        assertEquals(
+            viewModel.uiState.value.autoplayOnLoad,
+            savedStateHandle.get<Boolean>("autoplay_on_load")
+        )
+    }
+
+    @Test
+    fun `restoreSavedState includes autoplayOnLoad setting`() {
+        val savedStateHandle = SavedStateHandle(mapOf("autoplay_on_load" to true))
+        val viewModel = ViewerViewModel(
+            application = ApplicationProvider.getApplicationContext<Application>(),
+            savedStateHandle = savedStateHandle
+        )
+
+        assertTrue(viewModel.uiState.value.autoplayOnLoad)
     }
 
     private fun createViewModel(): Pair<ViewerViewModel, SavedStateHandle> {

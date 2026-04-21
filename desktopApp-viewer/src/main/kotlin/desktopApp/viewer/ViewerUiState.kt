@@ -8,6 +8,7 @@ data class ViewerUiState(
     val archivePath: String? = null,
     val isLoading: Boolean = false,
     val isPlaying: Boolean = false,
+    val autoplayOnLoad: Boolean = false,
     val slideshowIntervalMs: Long = 3_000L,
     val displayMode: ViewerDisplayMode = ViewerDisplayMode.SEQUENTIAL,
     val currentIndex: Int = 0,

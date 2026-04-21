@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import java.io.IOException
 import java.io.InputStream
+import kotlin.io.use
 import javax.imageio.ImageIO
 import javax.imageio.ImageReadParam
 

@@ -12,9 +12,19 @@ dependencies {
     implementation(project(":desktopApp-ui"))
 }
 
+val disableDesktopProguard =
+    (findProperty("desktop.disableProguard") as String?)?.toBoolean() == true
+
 compose.desktop {
     application {
         mainClass = "desktopApp.DesktopMainKt"
+
+        buildTypes.release.proguard {
+            isEnabled.set(!disableDesktopProguard)
+            if (!disableDesktopProguard) {
+                configurationFiles.from(project.file("proguard-rules.pro"))
+            }
+        }
 
         nativeDistributions {
             targetFormats(
@@ -23,9 +33,14 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe
             )
-            packageName = "DroidShowDesktop"
+            packageName = "showlio"
             packageVersion = "1.0.0"
-            description = "Desktop archive viewer for DroidShow"
+            description = "Desktop archive viewer for Showlio"
+            vendor = "Showlio"
+
+            macOS {
+                bundleID = "io.github.jhoar.showlio.desktop"
+            }
         }
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
+import androidx.compose.material.Checkbox
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.RadioButton
 import androidx.compose.material.Slider
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import desktopApp.policy.ViewerDisplayMode
@@ -39,11 +42,18 @@ import desktopApp.viewer.DesktopViewerController
 import desktopApp.viewer.ViewerStatePolicy
 import desktopApp.viewer.ViewerUiState
 import java.awt.FileDialog
-import java.io.File
+import java.nio.file.Path
 
 @Composable
-fun DroidShowDesktopWindow(onCloseRequest: () -> Unit) {
+fun DroidShowDesktopWindow(
+    onCloseRequest: () -> Unit,
+    initialArchivePath: String? = null
+) {
     val controller = remember { DesktopViewerController() }
+
+    LaunchedEffect(controller, initialArchivePath) {
+        controller.loadArchive(initialArchivePath)
+    }
 
     DisposableEffect(controller) {
         onDispose { controller.close() }
@@ -54,7 +64,8 @@ fun DroidShowDesktopWindow(onCloseRequest: () -> Unit) {
             controller.close()
             onCloseRequest()
         },
-        title = "DroidShow Desktop"
+        title = "Showlio",
+        icon = painterResource("showlio-icon.svg")
     ) {
         val state by controller.uiState.collectAsState()
         var showSettings by remember { mutableStateOf(false) }
@@ -109,10 +120,12 @@ fun DroidShowDesktopWindow(onCloseRequest: () -> Unit) {
                 SettingsDialog(
                     initialIntervalSeconds = (state.slideshowIntervalMs / 1_000L).toInt(),
                     initialDisplayMode = state.displayMode,
+                    initialAutoplayOnLoad = state.autoplayOnLoad,
                     onDismiss = { showSettings = false },
-                    onApply = { intervalSeconds, displayMode ->
+                    onApply = { intervalSeconds, displayMode, autoplayOnLoad ->
                         controller.setSlideshowIntervalSeconds(intervalSeconds)
                         controller.setDisplayMode(displayMode)
+                        controller.setAutoplayOnLoad(autoplayOnLoad)
                         showSettings = false
                     }
                 )
@@ -125,11 +138,13 @@ fun DroidShowDesktopWindow(onCloseRequest: () -> Unit) {
 private fun SettingsDialog(
     initialIntervalSeconds: Int,
     initialDisplayMode: ViewerDisplayMode,
+    initialAutoplayOnLoad: Boolean,
     onDismiss: () -> Unit,
-    onApply: (Int, ViewerDisplayMode) -> Unit
+    onApply: (Int, ViewerDisplayMode, Boolean) -> Unit
 ) {
     var intervalSeconds by remember(initialIntervalSeconds) { mutableFloatStateOf(initialIntervalSeconds.toFloat()) }
     var selectedMode by remember(initialDisplayMode) { mutableStateOf(initialDisplayMode) }
+    var autoplayOnLoad by remember(initialAutoplayOnLoad) { mutableStateOf(initialAutoplayOnLoad) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -159,10 +174,22 @@ private fun SettingsDialog(
                     selected = selectedMode == ViewerDisplayMode.RANDOM,
                     onSelected = { selectedMode = ViewerDisplayMode.RANDOM }
                 )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Checkbox(
+                        checked = autoplayOnLoad,
+                        onCheckedChange = { autoplayOnLoad = it }
+                    )
+                    Text("Autoplay after archive loads")
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onApply(intervalSeconds.toInt(), selectedMode) }) {
+            TextButton(onClick = { onApply(intervalSeconds.toInt(), selectedMode, autoplayOnLoad) }) {
                 Text("Apply")
             }
         },
@@ -198,12 +225,19 @@ private fun canControlPlayback(state: ViewerUiState): Boolean {
 }
 
 private fun buildStatusText(state: ViewerUiState): String {
-    val archiveName = state.archivePath?.let { path ->
-        File(path).name.ifBlank { path }
-    } ?: "No archive opened"
-
+    val archiveName = state.archivePath
+        ?.let(::displayNameForPath)
+        ?: "No archive opened"
+    val currentFileName = state.currentEntry
+        ?.entryPath
+        ?.let(::displayNameForPath)
     val base = if (state.totalCount > 0) {
-        "${state.currentIndex + 1}/${state.totalCount} • $archiveName"
+        buildString {
+            append("${state.currentIndex + 1}/${state.totalCount} • $archiveName")
+            if (!currentFileName.isNullOrBlank()) {
+                append(" • $currentFileName")
+            }
+        }
     } else {
         archiveName
     }
@@ -212,11 +246,18 @@ private fun buildStatusText(state: ViewerUiState): String {
     return if (error.isNullOrBlank()) base else "$base • $error"
 }
 
+private fun displayNameForPath(path: String): String {
+    return runCatching {
+        Path.of(path).fileName?.toString().orEmpty()
+    }.getOrDefault("").ifBlank { path }
+}
+
 private fun openArchivePicker(window: androidx.compose.ui.awt.ComposeWindow, onSelected: (String) -> Unit) {
     val picker = FileDialog(window, "Open Archive", FileDialog.LOAD).apply {
-        file = "*.zip"
+        file = "*.zip;*.cbz;*.rar;*.cbr;*.7z;*.cb7"
         isVisible = true
     }
-    val selectedFile = picker.file ?: return
-    onSelected(File(picker.directory, selectedFile).absolutePath)
+
+    val selectedPath = picker.files.firstOrNull()?.toPath()?.toAbsolutePath()?.toString() ?: return
+    onSelected(selectedPath)
 }

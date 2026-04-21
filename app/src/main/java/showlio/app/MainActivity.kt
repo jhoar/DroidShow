@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private val viewerViewModel: ViewerViewModel by viewModels()
     private var slideshowIntervalSeconds: Int = DEFAULT_SLIDESHOW_INTERVAL_SECONDS
     private var displayMode: ViewerUiState.DisplayMode = ViewerUiState.DisplayMode.SEQUENTIAL
+    private var autoplayOnLoad: Boolean = false
     private val archivePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@registerForActivityResult
         persistReadPermissionIfPossible(
@@ -119,6 +120,7 @@ class MainActivity : AppCompatActivity() {
     private fun render(state: ViewerUiState) {
         slideshowIntervalSeconds = (state.slideshowIntervalMs / 1_000L).toInt()
         displayMode = state.displayMode
+        autoplayOnLoad = state.autoplayOnLoad
         binding.openedUriText.text = buildPositionText(state)
         renderLoading(state)
         renderPlaybackButton(state)
@@ -163,6 +165,7 @@ class MainActivity : AppCompatActivity() {
             intervalSeconds = slideshowIntervalSeconds
         )
         settingsBinding.displayModeGroup.check(checkedIdForMode(settingsBinding, displayMode))
+        settingsBinding.autoplayOnLoadCheckbox.isChecked = autoplayOnLoad
 
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.settings_title)
@@ -170,6 +173,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.accept) { _, _ ->
                 viewerViewModel.setSlideshowIntervalSeconds(settingsBinding.slideshowIntervalPicker.value)
                 viewerViewModel.setDisplayMode(modeFromSelection(settingsBinding))
+                viewerViewModel.setAutoplayOnLoad(settingsBinding.autoplayOnLoadCheckbox.isChecked)
             }
             .setNegativeButton(R.string.cancel, null)
             .create()
