@@ -7,7 +7,6 @@ import java.io.InputStream
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.Image as SkiaImage
 import org.jetbrains.skia.Rect
-import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 
 interface ArchiveImageDecoder {
@@ -30,7 +29,7 @@ class DefaultArchiveImageDecoder : ArchiveImageDecoder {
             surface.canvas.drawImageRect(
                 image,
                 Rect.makeXYWH(0f, 0f, targetW.toFloat(), targetH.toFloat()),
-                SamplingMode.LINEAR
+                null
             )
             surface.makeImageSnapshot()
         }
