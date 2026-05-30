@@ -10,6 +10,7 @@ kotlin {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(project(":desktopApp-ui"))
+    testImplementation("junit:junit:4.13.2")
 }
 
 val disableDesktopProguard =

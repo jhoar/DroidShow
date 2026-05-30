@@ -38,6 +38,29 @@ private fun resolveCandidatePath(candidate: String): Path {
             Path.of(sanitizedCandidate)
         }
     }.getOrElse {
-        Path.of(sanitizedCandidate)
+        // URI(String) rejects non-ASCII characters (e.g. Japanese filenames). When the
+        // candidate looks like a file:// URL, re-extract the path and rebuild a
+        // properly-encoded URI; otherwise fall back to treating it as a plain path.
+        if (sanitizedCandidate.startsWith("file:", ignoreCase = true)) {
+            tryResolveFileUrl(sanitizedCandidate) ?: Path.of(sanitizedCandidate)
+        } else {
+            Path.of(sanitizedCandidate)
+        }
     }
 }
+
+internal fun tryResolveFileUrl(fileUrl: String): Path? = runCatching {
+    val afterScheme = fileUrl.substring("file:".length)
+    val rawPath = when {
+        afterScheme.startsWith("//") -> {
+            // file://[host]/path — skip optional authority and keep the path
+            val afterSlashes = afterScheme.substring(2)
+            val pathStart = afterSlashes.indexOf('/')
+            if (pathStart >= 0) afterSlashes.substring(pathStart) else "/"
+        }
+        else -> afterScheme
+    }
+    // URI(scheme, authority, path, query, fragment) percent-encodes non-ASCII characters
+    // in path, producing a valid URI that Paths.get(URI) can resolve correctly.
+    Paths.get(URI("file", "", rawPath, null, null))
+}.getOrNull()
