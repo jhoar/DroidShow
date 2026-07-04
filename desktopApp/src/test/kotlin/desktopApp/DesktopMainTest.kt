@@ -40,4 +40,18 @@ class DesktopMainTest {
         assertNotNull(result)
         assertEquals("日本語.zip", result?.fileName?.toString())
     }
+
+    @Test
+    fun `resolveProcessArgs returns jvm args unchanged on non-Windows platforms`() {
+        val jvmArgs = arrayOf("/tmp/日本語.zip")
+        val result = resolveProcessArgs(jvmArgs)
+        assertEquals(1, result.size)
+        assertEquals("/tmp/日本語.zip", result[0])
+    }
+
+    @Test
+    fun `resolveProcessArgs returns jvm args unchanged for empty input`() {
+        val result = resolveProcessArgs(emptyArray())
+        assertEquals(0, result.size)
+    }
 }

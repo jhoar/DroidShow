@@ -6,3 +6,10 @@
 -dontwarn org.slf4j.impl.**
 -dontwarn sun.font.**
 -dontwarn sun.misc.**
+
+# JNA resolves native methods and library interface proxies by name at runtime.
+-keep class com.sun.jna.** { *; }
+-keepclassmembers class * implements com.sun.jna.Library {
+    *;
+}
+-dontwarn com.sun.jna.**

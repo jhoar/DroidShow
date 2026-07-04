@@ -10,6 +10,7 @@ kotlin {
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(project(":desktopApp-ui"))
+    implementation("net.java.dev.jna:jna:5.19.1")
     testImplementation("junit:junit:4.13.2")
 }
 
