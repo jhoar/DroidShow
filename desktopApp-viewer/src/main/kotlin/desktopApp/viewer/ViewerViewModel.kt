@@ -186,8 +186,8 @@ class ViewerViewModel(
         )
     }
 
-    private fun showEntry(index: Int) {
-        if (imageEntries.isEmpty()) return
+    private fun showEntry(index: Int): Job? {
+        if (imageEntries.isEmpty()) return null
 
         val entry = imageEntries[index]
         val requestId = nextImageLoadRequestId()
@@ -201,7 +201,7 @@ class ViewerViewModel(
         )
         syncPersistenceFromState()
 
-        imageLoadJob = scope.launch {
+        val job = scope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
                     val reader = ensureActiveReader(entry.archivePath.toString())
@@ -222,6 +222,8 @@ class ViewerViewModel(
                 )
             }
         }
+        imageLoadJob = job
+        return job
     }
 
     private suspend fun ensureActiveReader(path: String): DesktopArchiveReader {
@@ -247,6 +249,8 @@ class ViewerViewModel(
 
         slideshowJob = scope.launch {
             while (_uiState.value.isPlaying && imageEntries.isNotEmpty()) {
+                imageLoadJob?.join()
+                if (!_uiState.value.isPlaying || imageEntries.isEmpty()) break
                 delay(_uiState.value.slideshowIntervalMs)
                 if (!_uiState.value.isPlaying || imageEntries.isEmpty()) break
                 val nextIndex = nextIndexForMode(_uiState.value.currentIndex)
