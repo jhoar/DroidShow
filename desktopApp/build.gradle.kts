@@ -43,6 +43,13 @@ compose.desktop {
             macOS {
                 bundleID = "io.github.jhoar.showlio.desktop"
             }
+
+            fileAssociation("application/zip", "zip", "ZIP Archive")
+            fileAssociation("application/vnd.comicbook+zip", "cbz", "Comic Book Archive (ZIP)")
+            fileAssociation("application/x-rar-compressed", "rar", "RAR Archive")
+            fileAssociation("application/vnd.comicbook-rar", "cbr", "Comic Book Archive (RAR)")
+            fileAssociation("application/x-7z-compressed", "7z", "7-Zip Archive")
+            fileAssociation("application/x-cb7", "cb7", "Comic Book Archive (7z)")
         }
     }
 }

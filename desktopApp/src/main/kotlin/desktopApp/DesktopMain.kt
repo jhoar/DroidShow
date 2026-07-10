@@ -1,5 +1,10 @@
 package desktopApp
 
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.application
 import com.sun.jna.Library
 import com.sun.jna.Native
@@ -7,15 +12,28 @@ import com.sun.jna.Pointer
 import com.sun.jna.WString
 import com.sun.jna.ptr.IntByReference
 import desktopApp.ui.DroidShowDesktopWindow
+import java.awt.Desktop
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 
 fun main(args: Array<String>) = application {
+    var archivePath by remember { mutableStateOf(resolveProcessArgs(args).firstValidArchivePath()) }
+
+    DisposableEffect(Unit) {
+        val desktop = Desktop.getDesktop().takeIf {
+            Desktop.isDesktopSupported() && it.isSupported(Desktop.Action.APP_OPEN_FILE)
+        }
+        desktop?.setOpenFileHandler { event ->
+            event.files.firstOrNull()?.path?.let { archivePath = it }
+        }
+        onDispose { desktop?.setOpenFileHandler(null) }
+    }
+
     DroidShowDesktopWindow(
         onCloseRequest = ::exitApplication,
-        initialArchivePath = resolveProcessArgs(args).firstValidArchivePath()
+        initialArchivePath = archivePath
     )
 }
 
