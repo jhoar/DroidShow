@@ -42,14 +42,56 @@ compose.desktop {
 
             macOS {
                 bundleID = "io.github.jhoar.showlio.desktop"
-            }
 
-            fileAssociation("application/zip", "zip", "ZIP Archive")
-            fileAssociation("application/vnd.comicbook+zip", "cbz", "Comic Book Archive (ZIP)")
-            fileAssociation("application/x-rar-compressed", "rar", "RAR Archive")
-            fileAssociation("application/vnd.comicbook-rar", "cbr", "Comic Book Archive (RAR)")
-            fileAssociation("application/x-7z-compressed", "7z", "7-Zip Archive")
-            fileAssociation("application/x-cb7", "cb7", "Comic Book Archive (7z)")
+                // fileAssociation() isn't available on the pinned compose plugin version
+                // (added in 1.7.0), so register CFBundleDocumentTypes via a raw Info.plist
+                // key instead, backed by a custom UTI covering the supported archive extensions.
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>CFBundleDocumentTypes</key>
+                        <array>
+                            <dict>
+                                <key>CFBundleTypeName</key>
+                                <string>Comic Book Archive</string>
+                                <key>CFBundleTypeRole</key>
+                                <string>Viewer</string>
+                                <key>LSHandlerRank</key>
+                                <string>Alternate</string>
+                                <key>LSItemContentTypes</key>
+                                <array>
+                                    <string>io.github.jhoar.showlio.archive</string>
+                                </array>
+                            </dict>
+                        </array>
+                        <key>UTExportedTypeDeclarations</key>
+                        <array>
+                            <dict>
+                                <key>UTTypeIdentifier</key>
+                                <string>io.github.jhoar.showlio.archive</string>
+                                <key>UTTypeDescription</key>
+                                <string>Comic Book Archive</string>
+                                <key>UTTypeConformsTo</key>
+                                <array>
+                                    <string>public.data</string>
+                                    <string>public.archive</string>
+                                </array>
+                                <key>UTTypeTagSpecification</key>
+                                <dict>
+                                    <key>public.filename-extension</key>
+                                    <array>
+                                        <string>zip</string>
+                                        <string>cbz</string>
+                                        <string>rar</string>
+                                        <string>cbr</string>
+                                        <string>7z</string>
+                                        <string>cb7</string>
+                                    </array>
+                                </dict>
+                            </dict>
+                        </array>
+                    """.trimIndent()
+                }
+            }
         }
     }
 }
