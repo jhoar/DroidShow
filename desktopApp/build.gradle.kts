@@ -46,6 +46,11 @@ compose.desktop {
                 // fileAssociation() isn't available on the pinned compose plugin version
                 // (added in 1.7.0), so register CFBundleDocumentTypes via a raw Info.plist
                 // key instead, backed by a custom UTI covering the supported archive extensions.
+                //
+                // "zip" is excluded from the custom UTI's filename-extension list: macOS already
+                // owns a system UTI for it (public.zip-archive), so that declaration wins extension
+                // resolution and our custom UTI would never match a .zip file. Instead we list
+                // public.zip-archive directly in LSItemContentTypes below.
                 infoPlist {
                     extraKeysRawXml = """
                         <key>CFBundleDocumentTypes</key>
@@ -60,6 +65,7 @@ compose.desktop {
                                 <key>LSItemContentTypes</key>
                                 <array>
                                     <string>io.github.jhoar.showlio.archive</string>
+                                    <string>public.zip-archive</string>
                                 </array>
                             </dict>
                         </array>
@@ -79,7 +85,6 @@ compose.desktop {
                                 <dict>
                                     <key>public.filename-extension</key>
                                     <array>
-                                        <string>zip</string>
                                         <string>cbz</string>
                                         <string>rar</string>
                                         <string>cbr</string>
