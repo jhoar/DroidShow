@@ -108,6 +108,8 @@ class ViewerViewModel(
 
     private fun loadArchive(path: String, resetPosition: Boolean) {
         loadingPath = path
+        imageEntries = emptyList()
+        cancelImageLoad()
         updateLoadingState(path)
         val initialIndex = ViewerStatePolicy.initialIndexForLoad(resetPosition, _uiState.value.currentIndex)
         _uiState.value = _uiState.value.copy(currentIndex = initialIndex)
@@ -153,7 +155,15 @@ class ViewerViewModel(
     }
 
     private fun updateLoadingState(path: String?) {
-        _uiState.value = _uiState.value.copy(archivePath = path, isLoading = path != null, errorMessage = null)
+        _uiState.value = _uiState.value.copy(
+            archivePath = path,
+            isLoading = path != null,
+            errorMessage = null,
+            bitmap = null,
+            currentEntry = null,
+            currentIndex = 0,
+            totalCount = 0
+        )
         syncPersistenceFromState()
     }
 
