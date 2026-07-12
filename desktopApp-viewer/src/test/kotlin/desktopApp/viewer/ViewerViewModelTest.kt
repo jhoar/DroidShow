@@ -142,6 +142,22 @@ class ViewerViewModelTest {
     }
 
     @Test
+    fun latestArchiveLoadWinsWhenPreviousLoadIsSlow() = runBlocking {
+        val vm = createViewModel(
+            readerFactory = { path -> DelayedByPathReader(entriesFor(path), delayMsFor(path)) }
+        )
+
+        vm.loadArchiveIfNeeded("/tmp/slow.cbz")
+        delay(20)
+        vm.loadArchiveIfNeeded("/tmp/fast.cbz")
+        delay(200)
+
+        assertEquals("/tmp/fast.cbz", vm.uiState.value.archivePath)
+        assertEquals("/tmp/fast.cbz", vm.uiState.value.currentEntry?.archivePath.toString())
+        vm.close()
+    }
+
+    @Test
     fun latestPageDecodeWinsWhenUserSkipsQuickly() = runBlocking {
         val decoder = DelayedByMarkerDecoder(firstDelayMs = 120L, secondDelayMs = 10L)
         val vm = createViewModel(
@@ -179,6 +195,8 @@ class ViewerViewModelTest {
             DesktopArchiveEntryRef(Path.of(path), "image_$idx.jpg", 0, 0, idx)
         }
     }
+
+    private fun delayMsFor(path: String): Long = if (path.contains("slow")) 150L else 0L
 
     private fun sequenceRng(vararg values: Int): (Int) -> Int {
         val sequence = values.iterator()
@@ -219,6 +237,20 @@ class ViewerViewModelTest {
             if (entry.index == 1) throw IOException("corrupt")
             return ByteArrayInputStream(byteArrayOf(entry.index.toByte()))
         }
+
+        override fun close() = Unit
+    }
+
+    private class DelayedByPathReader(
+        private val entries: List<DesktopArchiveEntryRef>,
+        private val listingDelayMs: Long
+    ) : DesktopArchiveReader {
+        override fun listImageEntries(): List<DesktopArchiveEntryRef> {
+            if (listingDelayMs > 0) Thread.sleep(listingDelayMs)
+            return entries
+        }
+
+        override fun openEntryStream(entry: DesktopArchiveEntryRef) = ByteArrayInputStream(byteArrayOf(entry.index.toByte()))
 
         override fun close() = Unit
     }
