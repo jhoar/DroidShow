@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
@@ -38,8 +40,11 @@ class ViewerViewModel(
     private var currentOrderPosition: Int = -1
     private var activeReaderPath: String? = null
     private var activeReader: DesktopArchiveReader? = null
+    private val activeReaderMutex = Mutex()
     private var imageLoadJob: Job? = null
     private var imageLoadRequestId: Long = 0L
+    private var archiveLoadJob: Job? = null
+    private var archiveLoadRequestId: Long = 0L
 
     init {
         restorePersistedState()
@@ -103,25 +108,30 @@ class ViewerViewModel(
     fun close() {
         stopSlideshowLoop()
         cancelImageLoad()
+        cancelArchiveLoad()
         closeActiveReader()
     }
 
     private fun loadArchive(path: String, resetPosition: Boolean) {
+        val requestId = nextArchiveLoadRequestId()
         loadingPath = path
         imageEntries = emptyList()
         cancelImageLoad()
+        cancelArchiveLoad()
         updateLoadingState(path)
         val initialIndex = ViewerStatePolicy.initialIndexForLoad(resetPosition, _uiState.value.currentIndex)
         _uiState.value = _uiState.value.copy(currentIndex = initialIndex)
         syncPersistenceFromState()
 
-        scope.launch {
+        val job = scope.launch {
             val result = runCatching {
                 withContext(Dispatchers.IO) {
                     val reader = ensureActiveReader(path)
                     reader.listImageEntries()
                 }
             }
+
+            if (!isArchiveLoadCurrent(requestId)) return@launch
 
             result.onSuccess { entries ->
                 loadingPath = null
@@ -140,12 +150,14 @@ class ViewerViewModel(
                 }
                 restartSlideshowLoopIfNeeded()
             }.onFailure { throwable ->
+                if (throwable is CancellationException) return@onFailure
                 closeActiveReader()
                 loadingPath = null
                 clearContentWithError(errorMessageFor(throwable))
                 stopSlideshowLoop()
             }
         }
+        archiveLoadJob = job
     }
 
     private fun setPlaying(playing: Boolean, restartLoop: Boolean = true) {
@@ -236,18 +248,27 @@ class ViewerViewModel(
         return job
     }
 
-    private suspend fun ensureActiveReader(path: String): DesktopArchiveReader {
+    private suspend fun ensureActiveReader(path: String): DesktopArchiveReader = activeReaderMutex.withLock {
         val currentReader = activeReader
-        if (currentReader != null && activeReaderPath == path) return currentReader
+        if (currentReader != null && activeReaderPath == path) return@withLock currentReader
 
-        closeActiveReader()
+        closeActiveReaderLocked()
         val newReader = readerFactory(path)
         activeReader = newReader
         activeReaderPath = path
-        return newReader
+        newReader
     }
 
     private fun closeActiveReader() {
+        if (!activeReaderMutex.tryLock()) return
+        try {
+            closeActiveReaderLocked()
+        } finally {
+            activeReaderMutex.unlock()
+        }
+    }
+
+    private fun closeActiveReaderLocked() {
         activeReader?.close()
         activeReader = null
         activeReaderPath = null
@@ -339,12 +360,24 @@ class ViewerViewModel(
         imageLoadJob = null
     }
 
+    private fun cancelArchiveLoad() {
+        archiveLoadJob?.cancel()
+        archiveLoadJob = null
+    }
+
     private fun nextImageLoadRequestId(): Long {
         imageLoadRequestId += 1L
         return imageLoadRequestId
     }
 
     private fun isImageLoadCurrent(requestId: Long): Boolean = imageLoadRequestId == requestId
+
+    private fun nextArchiveLoadRequestId(): Long {
+        archiveLoadRequestId += 1L
+        return archiveLoadRequestId
+    }
+
+    private fun isArchiveLoadCurrent(requestId: Long): Boolean = archiveLoadRequestId == requestId
 
     private fun restorePersistedState() {
         val restored = persistence.load() ?: return
